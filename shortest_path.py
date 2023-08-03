@@ -222,36 +222,23 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                 in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-    
-    def add_flow(self, datapath, priority, match, actions, idle_timeout=0, hard_timeout=0):
+        
+    def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # Convert single action to a list if it's not already
-        if not isinstance(actions, list):
-            actions = [actions]
-
-        # Create a list of OFPAction objects based on the actions
-        out_actions = []
-        for action in actions:
-            if 'out_port' in action:
-                out_actions.append(parser.OFPActionOutput(action['out_port']))
-            elif 'drop' in action:
-                out_actions.append(parser.OFPActionOutput(ofproto.OFPP_NONE))
-
-        # Create an OFPFlowMod message to add a flow entry
+        # Create the flow mod message and send it to the switch.
         flow_mod = parser.OFPFlowMod(
             datapath=datapath,
             match=match,
             cookie=0,
             command=ofproto.OFPFC_ADD,
-            idle_timeout=idle_timeout,
-            hard_timeout=hard_timeout,
+            idle_timeout=0,
+            hard_timeout=0,
             priority=priority,
             flags=ofproto.OFPFF_SEND_FLOW_REM,
-            actions=out_actions
+            actions=actions
         )
-
         datapath.send_msg(flow_mod)
 
 
