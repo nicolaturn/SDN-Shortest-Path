@@ -138,6 +138,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        self.logger.debug("packet received!")
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                             ev.msg.msg_len, ev.msg.total_len)
@@ -146,13 +147,29 @@ class ShortestPathSwitching(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.in_port
+        
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
+        src=eth.src
+        
+
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # Ignore LLDP packet
             return
+        if eth.ethertype == ether_types.ETH_TYPE_ARP:
+            arp_packet = pkt.get_protocol(arp.arp)
+            if arp_packet:
+                if arp_packet.opcode == arp.ARP_REQUEST:
+                    # Handle ARP request
+                    self.logger.info("Received ARP request from %s for %s", src, arp_packet.dst_ip)
+                    # Add your logic here to handle ARP requests and add the host to your topology manager
+
+                elif arp_packet.opcode == arp.ARP_REPLY:
+                    # Handle ARP reply
+                    self.logger.info("Received ARP reply from %s", src)
+                    # Add your logic here to handle ARP replies and update your topology manager if needed
 
         dst = eth.dst
         src = eth.src
@@ -187,7 +204,8 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
         # Install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
+            match = parser.OFPMatch(in_port=in_port)
+
             # Verify if we have a valid buffer_id, if yes avoid sending both
             # flow_mod & packet_out
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
@@ -203,6 +221,39 @@ class ShortestPathSwitching(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                 in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
+
+    
+    def add_flow(self, datapath, priority, match, actions, idle_timeout=0, hard_timeout=0):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Convert single action to a list if it's not already
+        if not isinstance(actions, list):
+            actions = [actions]
+
+        # Create a list of OFPAction objects based on the actions
+        out_actions = []
+        for action in actions:
+            if 'out_port' in action:
+                out_actions.append(parser.OFPActionOutput(action['out_port']))
+            elif 'drop' in action:
+                out_actions.append(parser.OFPActionOutput(ofproto.OFPP_NONE))
+
+        # Create an OFPFlowMod message to add a flow entry
+        flow_mod = parser.OFPFlowMod(
+            datapath=datapath,
+            match=match,
+            cookie=0,
+            command=ofproto.OFPFC_ADD,
+            idle_timeout=idle_timeout,
+            hard_timeout=hard_timeout,
+            priority=priority,
+            flags=ofproto.OFPFF_SEND_FLOW_REM,
+            actions=out_actions
+        )
+
+        datapath.send_msg(flow_mod)
+
 
 
 
