@@ -49,3 +49,13 @@ Run the Ryu controller by executing the following command:
 
 ```bash
 ryu-manager --observe-links shortest_path_switching.py
+```
+
+## Running Mininet
+Run mininet by executing the following command:
+
+```bash
+sudo python3 run_mininet.py "topology type" "additional number of hosts"
+```
+
+
