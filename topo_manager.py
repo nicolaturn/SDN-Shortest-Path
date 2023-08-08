@@ -95,9 +95,15 @@ class TopoManager():
         self.topo = {}
         self.host_ip_lookup={}
         self.host_locate = {}
-        self.switch_to_host={}
 
     def add_switch(self, sw):
+        """
+        Function for handling in the topology manager the add switch event:
+        Parameters:
+            sw: instance of the switch to be added
+        Returns:
+            None
+        """
         name = "switch_{}".format(str(sw.dp.id))
         switch = TMSwitch(name, sw)
 
@@ -110,6 +116,13 @@ class TopoManager():
         print("Current network_graph nodes:",self.network_graph.nodes)
 
     def add_host(self, h):
+        """
+        Function for handling in the topology manager the add host event:
+        Parameters:
+            h: istance of the host to be added
+        Returns:
+            None
+        """
         print(f"initial phase of adding host: mac-->{h.mac} dpip-->{h.port.dpid}")
         name = "host_{}".format(h.mac)
         host = TMHost(name, h)
@@ -122,9 +135,27 @@ class TopoManager():
         self.host_locate[h.mac] = {h.port.dpid}
 
     def add_host_ip_mac_mapping(self, ip, mac):
+        """
+        Function for handling the mapping of the hosts ip to the corrisponding mac addres
+        Parameters:
+            ip: the ip address of the host
+            mac: the mac address of the host
+        Returns:
+            None 
+        """
         self.host_ip_lookup[ip] = mac
 
-    def add_link(self, src_switch, src_port_no, dst_switch, dst_port_no, cost=1):
+    def add_link(self, src_switch, src_port_no, dst_switch, dst_port_no):
+        """
+        Function for handling in the topology manager the add link event
+        Parameters:
+            src_switch: the source switch of the link
+            src_port_no: the port number of the source switch
+            dst_switch: the destination switch of the link
+            dst_port_no: the port number of the destination switch
+        Returns:
+            None
+        """
         src_switch=str(src_switch)
         dst_switch=str(dst_switch)
         src_dev = self.get_device_by_port(src_switch, src_port_no)
@@ -155,23 +186,23 @@ class TopoManager():
         self.topo[src_switch][dst_switch] = src_port_no
         self.topo[dst_switch][src_switch] = dst_port_no
 
-        #set switches to host dictionary
-
-        if isinstance(src_dev, TMHost):
-            self.switch_to_host_port[src_switch] = {'host': src_dev, 'port': src_port_no}
-        if isinstance(dst_dev, TMHost):
-            self.switch_to_host_port[dst_switch] = {'host': dst_dev, 'port': dst_port_no}
-
         print("Added link edge to network_graph:", src_switch, "->", dst_switch)
         print("Current network_graph edges:", self.network_graph.edges())
         print("Current network_graph nodes:", self.network_graph.nodes())
-        print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n switch_to_host->{self.switch_to_host}")
+        print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n")
 
 
 
         
 
     def remove_link(self, link):
+        """
+        Function for handling in the topology manager the remove link event
+        Parameters:
+            link: the link to be removed
+        Returns:
+            None
+        """
         src_dev = self.get_device_by_port(link.src)
         dst_dev = self.get_device_by_port(link.dst)
 
@@ -185,6 +216,14 @@ class TopoManager():
         # Remove link from data structure(s)
 
     def get_device_by_port(self, dpid, port_no):
+        """
+        Function for getting the device by the port number
+        Parameters:
+            dpid: the dpid of the device
+            port_no: the port number of the device
+        Returns:
+            an instance of the device found, None otherwise
+        """
         for dev in self.all_devices:
             if isinstance(dev, TMSwitch):
                 for port in dev.get_ports():
@@ -197,6 +236,14 @@ class TopoManager():
 
 
     def get_shortest_path(self, src_switch, dst_switch):
+        """
+        Function for getting the shortest path between two switches
+        Parameters:
+            src_switch: the source switch of our path
+            dst_switch: the destination switch of our path
+        Returns:
+            a list containing the shortest path between src and dst
+        """
         print(f"getting the shortest path from {src_switch} to {dst_switch}")
         try:
             src_switch=str(src_switch)
@@ -211,106 +258,44 @@ class TopoManager():
             return None
         
     def get_switch_by_dpid(self, dpid):
+        """
+        Function for getting a switch by his dpid
+        Parameters:
+            dpid: the dpid of the switch to retrieve
+        Returns: 
+            the switch istance if it's found, None otherwise
+        """
         for dev in self.all_devices:
             if isinstance(dev, TMSwitch) and str(dev.get_dpid()) == dpid:
                 return dev
         return None
     
-    def dijkstra(self, src_switch, dst_switch):
-        # Initialize distance and previous nodes
-        dist = {switch: float('inf') for switch in self.topo}
-        prev = {switch: None for switch in self.topo}
-
-        # Distance to the source switch is 0
-        dist[src_switch] = 0
-
-        # Set of unvisited switches
-        unvisited = set(self.topo.keys())
-
-        while unvisited:
-            # Find the unvisited switch with the minimum distance
-            current_switch = min(unvisited, key=lambda switch: dist[switch])
-
-            # Remove the current switch from the unvisited set
-            unvisited.remove(current_switch)
-
-            # If the destination switch has been reached, break the loop
-            if current_switch == dst_switch:
-                break
-
-            # Update the distance and previous nodes for neighboring switches
-            for neighbor_switch, cost in self.topo[current_switch].items():
-                new_distance = dist[current_switch] + cost
-                if new_distance < dist[neighbor_switch]:
-                    dist[neighbor_switch] = new_distance
-                    prev[neighbor_switch] = current_switch
-
-        # Build and return the shortest path
-        shortest_path = []
-        current_switch = dst_switch
-        while current_switch is not None:
-            shortest_path.append(current_switch)
-            current_switch = prev[current_switch]
-
-        shortest_path.reverse()
-        return shortest_path
-    
     def dpid_hostLookup(self, mac):
+        """
+        Function for getting a host dpid by its mac address
+        Parameters:
+            mac: the mac address of the host to be retrieved
+        Returns:
+            the host dpid if found, None otherwise
+        """
         for host in self.all_devices:
             if isinstance(host, TMHost) and host.get_mac() == mac:
                 return (host.get_port().dpid)
         return None
     
-    def forward_packet(self, datapath, in_port, pkt, eth_pkt):
-        src_mac = eth_pkt.src
-        dst_mac = eth_pkt.dst
-
-        src_switch = datapath.id
-
-        # If the destination MAC is known in the same switch, send the packet directly
-        for neighbor in self.get_device_by_port(in_port).neighbors:
-            if isinstance(neighbor, TMHost) and neighbor.get_mac() == dst_mac:
-                self.send_packet(datapath, in_port, pkt)
-                return
-
-        # If the destination MAC is not known in the same switch, calculate the shortest path
-        # to the destination and forward the packet accordingly
-        dst_switch = self.dpid_hostLookup(dst_mac)
-
-        if dst_switch is not None:
-            shortest_path = self.dijkstra(src_switch, dst_switch)
-
-            if shortest_path is not None and len(shortest_path) > 1:
-                next_hop_switch = shortest_path[1]
-                out_port = self.get_output_port(src_switch, next_hop_switch)
-
-                if out_port is not None:
-                    actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
-                    self.send_packet_out(datapath, pkt, actions)
 
 
-    def send_packet_out(self, datapath, pkt, actions):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        in_port = datapath.ofproto.OFPP_CONTROLLER
-        buffer_id = datapath.ofproto.OFP_NO_BUFFER
-        data = pkt.data
 
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=buffer_id,
-                                    in_port=in_port, actions=actions, data=data)
-        datapath.send_msg(out)
-
-    def send_packet(self, datapath, out_port, pkt):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        pkt.serialize()
-        data = pkt.data
-        actions = [parser.OFPActionOutput(out_port, ofproto.OFPCML_NO_BUFFER)]
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
-                                  in_port=ofproto.OFPP_CONTROLLER, actions=actions, data=data)
-        datapath.send_msg(out)
 
     def get_port(self, dpid, port_no):
+        """
+        Function to retrieve a port by the corresponding dpid and port_no
+        Parameters:
+            dpid: the dpid of the device
+            port_no: the port number to be retrieved
+        Returns:
+            the port if found, None otherwise
+        """
         switch = self.get_switch_by_dpid(dpid)
         if switch is not None:
             for port in switch.ports.values():
@@ -324,6 +309,14 @@ class TopoManager():
 
 
     def get_output_port(self, src_switch, dst_switch):
+        """
+        Function to retrieve the output port between a given src and dst
+        Parameters:
+            src_switch: the source switch 
+            dst_switch: the destination switch
+        Returns:
+            the output port if it's found, None otherwise
+        """
         src_switch = str(src_switch)
         dst_switch = str(dst_switch)
 

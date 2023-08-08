@@ -142,13 +142,16 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        """
+        Event handler for the packet in event. Sets up the proper forwanding rules on the shortest path.
+        """
         self.logger.debug("packet received!")
-        if ev.msg.msg_len < ev.msg.total_len:
+        if ev.msg.msg_len < ev.msg.total_len: #check if the packet is truncated
             self.logger.debug("packet truncated: only %s of %s bytes",
                             ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
         datapath = msg.datapath
-        ofproto = datapath.ofproto
+        ofproto = datapath.ofproto      #set up the main objects in order to set up the forwarding rule
         parser = datapath.ofproto_parser
         in_port = msg.in_port
 
@@ -161,7 +164,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # Ignore LLDP packet
+            # Ignore LLDP packet: ignoring the link layer discovery packets from the switches
             return
         if eth.ethertype == ether_types.ETH_TYPE_ARP:
             arp_packet = pkt.get_protocol(arp.arp)
@@ -169,16 +172,16 @@ class ShortestPathSwitching(app_manager.RyuApp):
                 if arp_packet.opcode == arp.ARP_REQUEST:
                     # Handle ARP request
                     self.logger.info("Received ARP request from %s for %s", src, arp_packet.dst_ip)
-                    # Add your logic here to handle ARP requests and add the host to your topology manager
+                    # calling the handle_arp_request function to generate an ARP reply
                     res=self.handle_arp_request(datapath, in_port, eth, arp_packet)
                     
 
 
 
                 elif arp_packet.opcode == arp.ARP_REPLY:
-                    # Handle ARP reply
+                    # Handle ARP reply (just printing that is actually received by the sender)
                     self.logger.info("Received ARP reply from %s", src)
-                    # Add your logic here to handle ARP replies and update your topology manager if needed
+                    
              
 
         dst = eth.dst
@@ -193,7 +196,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         if dst_dpid is not None:
             self.logger.info("\n\tpacket in %s %s %s %s %s", dpid, src, dst, dst_dpid, in_port)
 
-        # Learn a MAC address to avoid FLOOD next time.
+        # Learn a MAC address 
         self.mac_to_port[dpid][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
@@ -203,40 +206,42 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Call the TopoManager to get the shortest path between source and destination switches
+        # Call the TopoManager to get the shortest path between source and destination switches (this part gets tricky)
         if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
-                    self.logger.info("calling to dijkstra with source %s destination %s", src_dpid, dst_dpid)
+                    #after checking that the src and destination ar in our topo dictionary we call the shortest path on the topo manager
+                    self.logger.info("calling to shortest path with source %s destination %s", src_dpid, dst_dpid)
                     print(f"graph of the current network: {self.tm.network_graph.nodes()}\n {self.tm.network_graph.edges()} ")
                     path = self.tm.get_shortest_path(str(src_dpid),str(dst_dpid))
                     print(f"setting flow rules in path:{path}")
-
+                    #we check if the path has a lenght >= 2 to ensure it is valid
                     if path is not None and len(path) >= 2:
                                 print(f"lenght of path:{len(path)}")
-                                for i in range(1, len(path)+1):
+                                for i in range(1, len(path)+1): #we add one to lenght to iterate properly on every switch
                                     print (f"{i} iteration on path of lenght: {len(path)} to set up rules")
+                                    #if it is the last switch the logic needs to be different
                                     if(i==len(path)):
                                          last=path[i-1]
                                          prev=path[i-2]
+                                         #the main assumption we make: every switch needs to communicate with the host on port 1
                                          print(f"trying to set flow for {last} to connect to host under the assumption that switches and hosts are connected on port 1")
                                          #retrieving the out_port of the previous element to set in the last as the in_port
                                          in_port=self.tm.get_output_port(prev,last)
                                          print("setting last rule")
-                                         if out_port is not None:
-                                              actions=[parser.OFPActionOutput(1)]
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)
-                                              self.add_flow(datapath,match,actions)
+                                         if out_port is not None:                                   #here it gets tricky: we take the previous switch outport 
+                                              actions=[parser.OFPActionOutput(1)]                   #and we set it as the last one switch as the in_port
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)  #then we set the out_port of the last one to one, under
+                                              self.add_flow(datapath,match,actions)                 #the assumption we did earlier
                                          break
+                                    #otherwise the logic is straightforward: retrieve the previous and next switch
                                     prv = path[i-1]
                                     next = path[i]
                                     print(f"trying to set flow for {prv} to {next}")
+                                    #getting the out port to set on the prv switch
                                     out_port = self.tm.get_output_port(prv, next)
                                     print(f"outport:{out_port}")
                                     if out_port is not None:
                                         print("setting forwarding rules...")
                                         actions = [parser.OFPActionOutput(out_port)]
-                                        
-                                        # Get datapath for the current switch
-                                        switch_dp = self.tm.get_switch_by_dpid(prv)  # Assuming get_switch_by_dpid returns datapath
                                         
                                         # Create match object
                                         print(f"in_port retrieved:{in_port}")
@@ -247,26 +252,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         
                                 print(actions)   
                             
-        """ 
-        # Install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port)
 
-            # Verify if we have a valid buffer_id, if yes avoid sending both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
-
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                in_port=in_port, actions=actions, data=data)
-        datapath.send_msg(out) """
 
     def handle_arp_request(self, datapath, in_port, eth, arp_packet):
         # Check if the destination IP is in your topology manager's hosts
@@ -315,6 +301,15 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
         
     def add_flow(self, datapath, match, actions):
+        """
+        Function for adding flows on a given datapath, match and actions.
+        Parameters:
+            datapath: the datapath on which we are going to set the rules
+            match: the object containing the in_port to match
+            actions: the object containing the out_port to forward to
+        Returns:
+            None
+        """
         ofproto = ofproto_v1_0
         parser = ofproto_v1_0_parser
 
@@ -339,5 +334,4 @@ if __name__ == '__main__':
 
     # Run the Ryu controller
     app_manager.run_eventlet(ShortestPathSwitching)
-    #ryu_app=ShortestPathSwitching()
-    #main([ryu_app])
+
