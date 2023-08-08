@@ -1,6 +1,6 @@
 # SDN Controller with Shortest Path Switching
 
-This branch of the project contains the implementation of an SDN (Software-Defined Networking) controller utilizing shortest path switching logic. The controller is developed using the Ryu framework and is designed to manage network topologies composed of Docker container hosts.
+This branch of the project contains the implementation of an SDN (Software-Defined Networking) controller utilizing shortest path switching logic. The controller is developed using the Ryu framework and is designed to manage network topologies.
 
 ## Table of Contents
 
