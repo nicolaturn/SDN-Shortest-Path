@@ -38,6 +38,7 @@ class TMSwitch(Device):
         super(TMSwitch, self).__init__(name)
 
         self.switch = switch
+        
         # TODO:  Add more attributes as necessary
 
     def get_dpid(self):
@@ -92,29 +93,40 @@ class TopoManager():
         self.all_links = []
         self.network_graph = nx.Graph()
         self.topo = {}
+        self.host_ip_lookup={}
         self.host_locate = {}
+        self.switch_to_host={}
 
     def add_switch(self, sw):
-        name = "switch_{}".format(sw.dp.id)
+        name = "switch_{}".format(str(sw.dp.id))
         switch = TMSwitch(name, sw)
 
         self.all_devices.append(switch)
-        self.network_graph.add_node(sw.dp.id)
-        self.topo[str(sw.dp.id)] = {}
+        self.network_graph.add_node(str(sw.dp.id))
+        dpid_str = str(sw.dp.id)
+        if dpid_str not in self.topo:
+            self.topo[dpid_str] = {}
         print("Added switch node to network_graph:", sw.dp.id)
         print("Current network_graph nodes:",self.network_graph.nodes)
 
     def add_host(self, h):
-        print("initial phase of adding host")
+        print(f"initial phase of adding host: mac-->{h.mac} dpip-->{h.port.dpid}")
         name = "host_{}".format(h.mac)
         host = TMHost(name, h)
         print("adding host...",h)
+        
 
         self.all_devices.append(host)
         self.network_graph.add_node(h.mac)
-        self.host_locate[str(h.port.dpid)] = {h.mac}
+        self.network_graph.add_edge(h.port.dpid, h.mac)
+        self.host_locate[h.mac] = {h.port.dpid}
 
-    def add_link(self, src_switch, src_port_no, dst_switch, dst_port_no):
+    def add_host_ip_mac_mapping(self, ip, mac):
+        self.host_ip_lookup[ip] = mac
+
+    def add_link(self, src_switch, src_port_no, dst_switch, dst_port_no, cost=1):
+        src_switch=str(src_switch)
+        dst_switch=str(dst_switch)
         src_dev = self.get_device_by_port(src_switch, src_port_no)
         dst_dev = self.get_device_by_port(dst_switch, dst_port_no)
 
@@ -122,12 +134,39 @@ class TopoManager():
             src_dev.add_neighbor(dst_dev)
             dst_dev.add_neighbor(src_dev)
 
+        # Add switches as nodes to the network graph (if they are not already added)
+        if src_switch not in self.network_graph.nodes:
+            self.network_graph.add_node(src_switch)
+        if dst_switch not in self.network_graph.nodes:
+            self.network_graph.add_node(dst_switch)
+
+        # Add the link to the network graph
         self.network_graph.add_edge(src_switch, dst_switch)
-        self.topo[str(src_switch)][str(dst_switch)] = 1
-        self.topo[str(dst_switch)][str(src_switch)] = 1
+        
+        # Add src_switch to self.topo if not present
+        if src_switch not in self.topo:
+            self.topo[src_switch] = {}
+        
+        # Add dst_switch to self.topo if not present
+        if dst_switch not in self.topo:
+            self.topo[dst_switch] = {}
+
+        # Set ouput port in self.topo
+        self.topo[src_switch][dst_switch] = src_port_no
+        self.topo[dst_switch][src_switch] = dst_port_no
+
+        #set switches to host dictionary
+
+        if isinstance(src_dev, TMHost):
+            self.switch_to_host_port[src_switch] = {'host': src_dev, 'port': src_port_no}
+        if isinstance(dst_dev, TMHost):
+            self.switch_to_host_port[dst_switch] = {'host': dst_dev, 'port': dst_port_no}
 
         print("Added link edge to network_graph:", src_switch, "->", dst_switch)
-        print("Current network_graph edges:", self.network_graph.edges)
+        print("Current network_graph edges:", self.network_graph.edges())
+        print("Current network_graph nodes:", self.network_graph.nodes())
+        print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n switch_to_host->{self.switch_to_host}")
+
 
 
         
@@ -158,17 +197,22 @@ class TopoManager():
 
 
     def get_shortest_path(self, src_switch, dst_switch):
+        print(f"getting the shortest path from {src_switch} to {dst_switch}")
         try:
             src_switch=str(src_switch)
             dst_switch=str(dst_switch)
             shortest_path = nx.shortest_path(self.network_graph, source=src_switch, target=dst_switch)
             return shortest_path
         except nx.NetworkXNoPath:
+            print("Not finding any path...")
+            return None
+        except nx.NodeNotFound:
+            print("not founding any the nodes passed...")
             return None
         
     def get_switch_by_dpid(self, dpid):
         for dev in self.all_devices:
-            if isinstance(dev, TMSwitch) and dev.get_dpid() == dpid:
+            if isinstance(dev, TMSwitch) and str(dev.get_dpid()) == dpid:
                 return dev
         return None
     
@@ -214,7 +258,7 @@ class TopoManager():
     def dpid_hostLookup(self, mac):
         for host in self.all_devices:
             if isinstance(host, TMHost) and host.get_mac() == mac:
-                return host.get_port().dpid
+                return (host.get_port().dpid)
         return None
     
     def forward_packet(self, datapath, in_port, pkt, eth_pkt):
@@ -266,18 +310,33 @@ class TopoManager():
                                   in_port=ofproto.OFPP_CONTROLLER, actions=actions, data=data)
         datapath.send_msg(out)
 
+    def get_port(self, dpid, port_no):
+        switch = self.get_switch_by_dpid(dpid)
+        if switch is not None:
+            for port in switch.ports.values():
+                if port.port_no == port_no:
+                    return port
+        return None
+
+
 
 
 
 
     def get_output_port(self, src_switch, dst_switch):
+        src_switch = str(src_switch)
+        dst_switch = str(dst_switch)
+
         path = self.get_shortest_path(src_switch, dst_switch)
         if path is not None and len(path) > 1:
             src = path[0]
             dst = path[1]
-            switch = self.get_switch_by_dpid(src)
-            if switch is not None:
-                for port in switch.get_ports():
-                    if port.dpid == dst:
-                        return port.port_no
+            print(f"Entering get_output_port on src:{src}, dst:{dst}")
+
+            if src in self.topo and dst in self.topo[src]:
+                print(self.topo)
+                return self.topo[dst][src]  # Use the topology dictionary to get the output port
+
         return None
+
+
