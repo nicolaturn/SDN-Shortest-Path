@@ -95,6 +95,7 @@ class TopoManager():
         self.topo = {}
         self.host_ip_lookup={}
         self.host_locate = {}
+        self.flow_rules={}
 
     def add_switch(self, sw):
         """
@@ -331,5 +332,10 @@ class TopoManager():
                 return self.topo[dst][src]  # Use the topology dictionary to get the output port
 
         return None
+    
+    def add_rule_to_dict(self,switch, in_port, out_port):
+        if switch not in self.flow_rules:
+            self.flow_rules[switch]={}
+        self.flow_rules[switch][in_port]=out_port
 
 

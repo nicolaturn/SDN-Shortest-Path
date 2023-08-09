@@ -41,6 +41,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.tm = TopoManager()
         self.mac_to_port={}
         logging.basicConfig(level=logging.DEBUG)
+        rule_id_counter=1
 
     @set_ev_cls(event.EventSwitchEnter)
     def handle_switch_add(self, ev):
@@ -205,6 +206,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
+       
 
         # Call the TopoManager to get the shortest path between source and destination switches (this part gets tricky)
         if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
@@ -227,10 +229,16 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                          #retrieving the out_port of the previous element to set in the last as the in_port
                                          in_port=self.tm.get_output_port(prev,last)
                                          print("setting last rule")
-                                         if out_port is not None:                                   #here it gets tricky: we take the previous switch outport 
+                                         if in_port is not None:                                   #here it gets tricky: we take the previous switch outport 
                                               actions=[parser.OFPActionOutput(1)]                   #and we set it as the last one switch as the in_port
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)  #then we set the out_port of the last one to one, under
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one to one, under
                                               self.add_flow(datapath,match,actions)                 #the assumption we did earlier
+                                              actions=[parser.OFPActionOutput(in_port)]
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=1)         #bidirectional flow
+                                              self.add_flow(datapath, match,actions)
+                                              self.tm.add_rule_to_dict(last,in_port,1)
+                                              self.tm.add_rule_to_dict(last,1,in_port)
+                                              print(f"rule state:{self.tm.flow_rules}")
                                          break
                                     #otherwise the logic is straightforward: retrieve the previous and next switch
                                     prv = path[i-1]
@@ -249,8 +257,14 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         
                                         # Add flow rule to the current switch
                                         self.add_flow(datapath, match, actions) 
+                                        actions=[parser.OFPActionOutput(in_port)]
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port) #bidirectional flow
+                                        self.add_flow(datapath,match,actions)
+                                        self.tm.add_rule_to_dict(prv,in_port,out_port)
+                                        self.tm.add_rule_to_dict(prv,out_port,in_port)
+                                        print(f"rule state:{self.tm.flow_rules}")
                                         
-                                print(actions)   
+                                
                             
 
 
