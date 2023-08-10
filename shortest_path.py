@@ -371,16 +371,16 @@ class ShortestPathSwitching(app_manager.RyuApp):
         print(f"inside add_flow:{res}")
     
     def check_rule(self, switch, in_port, out_port):
-         print("checking rules")
+         print(f"checking rules")
          existing_rule=self.tm.get_rule_from_dict(switch,in_port)
          if existing_rule is not None and (existing_rule!=out_port):
               print(f"found already existing rule on in_port:{in_port} for switch:{switch} on out_port:{existing_rule}")
-              del self.tm.flow_rules[switch][in_port]
+              del self.tm.flow_rules[switch]
               self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),in_port)
          existing_rule=self.tm.get_rule_from_dict(switch,out_port)
          if existing_rule is not None and (existing_rule!=in_port):
               print(f"found already existing rule on in_port:{out_port} for switch:{switch} on out_port:{existing_rule}")
-              del self.tm.flow_rules[switch][out_port]
+              del self.tm.flow_rules[switch]
               self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),out_port)
 
     def delete_flow_rule(self, datapath, in_port):
@@ -394,7 +394,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         flow_mod = parser.OFPFlowMod(
             datapath=datapath,
             command=ofproto.OFPFC_DELETE,
-            match=match
+            match=parser.OFPMatch()
         )
 
         # Send the flow mod message to the switch
