@@ -218,51 +218,84 @@ class ShortestPathSwitching(app_manager.RyuApp):
                     #we check if the path has a lenght >= 2 to ensure it is valid
                     if path is not None and len(path) >= 2:
                                 print(f"lenght of path:{len(path)}")
-                                for i in range(1, len(path)+1): #we add one to lenght to iterate properly on every switch
+                                for i in range(0, len(path)): #we add one to lenght to iterate properly on every switch
                                     print (f"{i} iteration on path of lenght: {len(path)} to set up rules")
                                     #if it is the last switch the logic needs to be different
-                                    if(i==len(path)):
-                                         last=path[i-1]
-                                         prev=path[i-2]
+                                    if(i==0):
+                                        first=path[i]
+                                        second=path[i+1]
+                                        print(f"setting the first element")
+                                        out_port=self.tm.get_output_port(first,second)
+                                        in_port=1
+                                        print(f"in_port set to 1, outport to connect with {second} set to {out_port}")
+                                        self.check_rule(first,in_port,out_port)
+                                        actions=[parser.OFPActionOutput(1)]
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)
+                                        self.add_flow(datapath,match,actions)
+                                        self.tm.add_rule_to_dict(first,in_port,out_port)
+                                        self.check_rule(first, out_port, in_port)
+                                        actions=[parser.OFPActionOutput(out_port)]
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=1)
+                                        self.add_flow(datapath,match,actions)
+                                        self.tm.add_rule_to_dict(first, out_port, in_port)
+                                        continue
+                                        
+                                    if(i==len(path)-1):
+                                         last=path[i]
+                                         prev=path[i-1]
                                          #the main assumption we make: every switch needs to communicate with the host on port 1
                                          print(f"trying to set flow for {last} to connect to host under the assumption that switches and hosts are connected on port 1")
                                          #retrieving the out_port of the previous element to set in the last as the in_port
-                                         in_port=self.tm.get_output_port(prev,last)
+                                         in_port=self.tm.get_output_port(last,prev)
+                                         print(f"outport:{in_port}")
                                          print("setting last rule")
-                                         if in_port is not None:                                   #here it gets tricky: we take the previous switch outport 
+                                         if in_port is not None:                                   #here it gets tricky: we take the previous switch outport  existing_out_port=self.tm.get_rule_from_dict(prv,msg.in_port)
+                                              self.check_rule(last,1,in_port)
+                                                   
                                               actions=[parser.OFPActionOutput(1)]                   #and we set it as the last one switch as the in_port
                                               match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one to one, under
-                                              self.add_flow(datapath,match,actions)                 #the assumption we did earlier
+                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 #the assumption we did earlier
+                                              self.tm.add_rule_to_dict(last,1,in_port)
+                                              self.check_rule(last, in_port,1)
                                               actions=[parser.OFPActionOutput(in_port)]
                                               match=ofproto_v1_0_parser.OFPMatch(in_port=1)         #bidirectional flow
-                                              self.add_flow(datapath, match,actions)
+                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
                                               self.tm.add_rule_to_dict(last,in_port,1)
-                                              self.tm.add_rule_to_dict(last,1,in_port)
+                                              
                                               print(f"rule state:{self.tm.flow_rules}")
-                                         break
+                                              break
+                                         
                                     #otherwise the logic is straightforward: retrieve the previous and next switch
-                                    prv = path[i-1]
-                                    next = path[i]
-                                    print(f"trying to set flow for {prv} to {next}")
-                                    #getting the out port to set on the prv switch
-                                    out_port = self.tm.get_output_port(prv, next)
-                                    print(f"outport:{out_port}")
-                                    if out_port is not None:
-                                        print("setting forwarding rules...")
-                                        actions = [parser.OFPActionOutput(out_port)]
-                                        
-                                        # Create match object
-                                        print(f"in_port retrieved:{in_port}")
-                                        match = ofproto_v1_0_parser.OFPMatch(in_port=in_port)
-                                        
-                                        # Add flow rule to the current switch
-                                        self.add_flow(datapath, match, actions) 
-                                        actions=[parser.OFPActionOutput(in_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port) #bidirectional flow
-                                        self.add_flow(datapath,match,actions)
-                                        self.tm.add_rule_to_dict(prv,in_port,out_port)
-                                        self.tm.add_rule_to_dict(prv,out_port,in_port)
-                                        print(f"rule state:{self.tm.flow_rules}")
+                                    else:
+                                        prev=path[i-1]
+                                        current = path[i]
+                                        next = path[i+1]
+                                        print(f"trying to set flow between {prev}, {current} and {next}")
+                                        #getting the out port to set on the prv switch
+                                        in_port = self.tm.get_output_port(prev, current)
+                                        out_port=self.tm.get_output_port(current,next)
+                                        print(f"outport:{out_port}")
+                                        if out_port is not None:
+        
+                                            
+                                            
+                                            # Create match object
+                                            print(f"in_port retrieved:{in_port}, out_port retrieved:{out_port}")
+                                            self.check_rule(current,in_port,out_port)
+                                            match = ofproto_v1_0_parser.OFPMatch(in_port=in_port)
+                                            actions = [parser.OFPActionOutput(out_port)]
+                                            print(f"match and actions: {match}, {actions}")
+                                            
+                                            # Add flow rule to the current switch
+                                            self.add_flow(self.tm.get_device_by_name(current).get_dp(), match, actions)
+                                            self.check_rule(current,out_port,in_port) 
+                                            actions=[parser.OFPActionOutput(in_port)]
+                                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port) #bidirectional flow
+                                            print(f"bidirectional match and actions: {match}, {actions}")
+                                            self.add_flow(self.tm.get_device_by_name(current).get_dp(),match , actions)
+                                            self.tm.add_rule_to_dict(current,in_port,out_port)
+                                            self.tm.add_rule_to_dict(current,out_port,in_port)
+                                            print(f"rule state:{self.tm.flow_rules}")
                                         
                                 
                             
@@ -336,6 +369,39 @@ class ShortestPathSwitching(app_manager.RyuApp):
         )
         res=datapath.send_msg(flow_mod)
         print(f"inside add_flow:{res}")
+    
+    def check_rule(self, switch, in_port, out_port):
+         print("checking rules")
+         existing_rule=self.tm.get_rule_from_dict(switch,in_port)
+         if existing_rule is not None and (existing_rule!=out_port):
+              print(f"found already existing rule on in_port:{in_port} for switch:{switch} on out_port:{existing_rule}")
+              del self.tm.flow_rules[switch][in_port]
+              self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),in_port)
+         existing_rule=self.tm.get_rule_from_dict(switch,out_port)
+         if existing_rule is not None and (existing_rule!=in_port):
+              print(f"found already existing rule on in_port:{out_port} for switch:{switch} on out_port:{existing_rule}")
+              del self.tm.flow_rules[switch][out_port]
+              self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),out_port)
+
+    def delete_flow_rule(self, datapath, in_port):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # Create a match for the existing rule based on in_port and out_port
+        match = parser.OFPMatch(in_port=in_port)
+
+        # Create a flow mod message to delete the rule
+        flow_mod = parser.OFPFlowMod(
+            datapath=datapath,
+            command=ofproto.OFPFC_DELETE,
+            match=match
+        )
+
+        # Send the flow mod message to the switch
+        datapath.send_msg(flow_mod)
+
+        
+
 
 
 

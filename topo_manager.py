@@ -38,6 +38,7 @@ class TMSwitch(Device):
         super(TMSwitch, self).__init__(name)
 
         self.switch = switch
+        self.name=name
         
         # TODO:  Add more attributes as necessary
 
@@ -233,6 +234,15 @@ class TopoManager():
             elif isinstance(dev, TMHost) and port_no == dev.get_port().port_no:
                 return dev
         return None
+    
+    def get_device_by_name(self, name):
+        name="switch_"+name
+        #print(f"name is: {name}")
+        for dev in self.all_devices:
+            if isinstance (dev, TMSwitch):
+                #print(f" device : {dev.switch}, name: {dev.name}")
+                if name==str(dev.name):
+                    return dev
 
 
 
@@ -329,13 +339,27 @@ class TopoManager():
 
             if src in self.topo and dst in self.topo[src]:
                 print(self.topo)
-                return self.topo[dst][src]  # Use the topology dictionary to get the output port
+                return self.topo[src][dst]  # Use the topology dictionary to get the output port
 
         return None
     
     def add_rule_to_dict(self,switch, in_port, out_port):
+        print(f"adding to the rul dict rule for switch {switch} [{in_port}]= {out_port}")
         if switch not in self.flow_rules:
             self.flow_rules[switch]={}
         self.flow_rules[switch][in_port]=out_port
+
+    def get_rule_from_dict(self, switch, in_port):
+        """
+        Retrieve the out port associated with the given switch and in port from the rule dictionary.
+        Returns None if the rule is not found.
+        """
+        print(f"searching for {switch} and related rules on the in_port {in_port}")
+        if switch in self.flow_rules and in_port in self.flow_rules[switch]:
+            print(f"found existing rule on {switch}[{in_port}]:{self.flow_rules[switch][in_port]}")
+            return self.flow_rules[switch][in_port]
+        else:
+            print(f"not finding any rules on {switch}[{in_port}]")
+            return None
 
 
