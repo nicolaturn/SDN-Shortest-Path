@@ -3,7 +3,6 @@
 Custom topologies for cs168, Fall 2018, Project 4
 """
 
-import sys
 import time
 import argparse
 
@@ -210,6 +209,16 @@ def main():
         # Send a "join message", which is a gratuitous ARP
         info('*** Sending ARPing from host %s\n' % (h.name))
         send_arping(h)
+
+    #We choose h1 as the server and h2 as the client, which will visit a simple web page
+    res = ""
+    for host in net.hosts:
+        if host.name == "h1":
+            res = host.cmd("python3 -m scriptServer 80 &")   #faccio partire una semplice pagina web
+            print(f"Tentativo di avvio del simple web server. Con IP: {host.IP()} Esito: {res.strip()}")
+            break
+    
+
     CLI( net )
     net.stop()
 
