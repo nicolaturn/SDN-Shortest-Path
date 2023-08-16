@@ -7,7 +7,7 @@ import sys
 import time
 import argparse
 
-from mininet.cli import CLI
+from custom_cli import CustomCLI
 from mininet.net import Mininet
 from mininet.node import OVSSwitch, RemoteController
 from mininet.topo import Topo,SingleSwitchTopo,LinearTopo
@@ -108,6 +108,8 @@ class MeshTopo(Topo):
             for j in range(i+1,n):
                 self.addLink(switches[i], switches[j])
 
+            
+
 
 ALL_TOPOLOGIES = {
     "single": SingleSwitchTopo,
@@ -183,8 +185,8 @@ def main():
         topo = ALL_TOPOLOGIES[args.command]()
 
     # Add custom CLI commands
-    CLI.do_arping_all = do_arping_all
-    CLI.do_arping = do_arping
+    CustomCLI.do_arping_all = do_arping_all
+    CustomCLI.do_arping = do_arping
 
     # Create the network
     net = Mininet(topo=topo, autoSetMacs=True, controller=RemoteController)
@@ -210,7 +212,8 @@ def main():
         # Send a "join message", which is a gratuitous ARP
         info('*** Sending ARPing from host %s\n' % (h.name))
         send_arping(h)
-    CLI( net )
+    
+    CustomCLI( net )
     net.stop()
 
 
