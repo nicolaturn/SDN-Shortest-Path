@@ -19,3 +19,5 @@ class CustomCLI(CLI):
             
             # Simulate communication by sending a ping between hosts
             self.mn[source_host].cmd('ping -c 1 {}'.format(self.mn[destination_host].IP()))
+            return
+            
