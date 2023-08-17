@@ -6,7 +6,7 @@ Custom topologies for cs168, Fall 2018, Project 4
 import time
 import argparse
 
-from mininet.cli import CLI
+from custom_cli import CustomCLI
 from mininet.net import Mininet
 from mininet.node import OVSSwitch, RemoteController
 from mininet.topo import Topo,SingleSwitchTopo,LinearTopo
@@ -107,6 +107,8 @@ class MeshTopo(Topo):
             for j in range(i+1,n):
                 self.addLink(switches[i], switches[j])
 
+            
+
 
 ALL_TOPOLOGIES = {
     "single": SingleSwitchTopo,
@@ -182,8 +184,8 @@ def main():
         topo = ALL_TOPOLOGIES[args.command]()
 
     # Add custom CLI commands
-    CLI.do_arping_all = do_arping_all
-    CLI.do_arping = do_arping
+    CustomCLI.do_arping_all = do_arping_all
+    CustomCLI.do_arping = do_arping
 
     # Create the network
     net = Mininet(topo=topo, autoSetMacs=True, controller=RemoteController)
@@ -218,8 +220,7 @@ def main():
             print(f"Tentativo di avvio del simple web server. Con IP: {host.IP()} Esito: {res.strip()}")
             break
     
-
-    CLI( net )
+    CustomCLI( net )
     net.stop()
 
 
