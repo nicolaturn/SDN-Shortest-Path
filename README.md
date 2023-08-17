@@ -78,6 +78,6 @@ To test the communication between a pair of hosts:
 
 4. Run `simulate_client_request <src> <url>` to make an HTTP GET request at the specified URL.
 
-It's necessary to always run the simulate_communication to install the proper forwarding rules between the hosts to enable communication.
+It's necessary to always run the `simulate_client_request` to install the proper forwarding rules between the hosts to enable communication.
 
 
