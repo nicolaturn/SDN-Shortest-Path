@@ -40,7 +40,7 @@ Before using the SDN controller and running Mininet topologies, ensure you have 
 
 - Ryu Framework
 - Mininet
-- Docker
+- Networkx
 
 ## Usage
 
