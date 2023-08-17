@@ -391,15 +391,6 @@ class ShortestPathSwitching(app_manager.RyuApp):
         # Send the flow mod message to the switch
         datapath.send_msg(flow_mod)
 
-        
-
-
-
-
-
-
-
-
 if __name__ == '__main__':
     from ryu.cmd import main
 
