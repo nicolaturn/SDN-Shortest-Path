@@ -1,17 +1,61 @@
 ''' Graphic User Interface for the SDN '''
 
+
+# Graphic modules
 import tkinter as tk
 from tkinter import ttk
 import os
 
+# Network graph modules
 import networkx as nx
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image, ImageTk
-import networkx
 
+# Socket communication modules
+import socket
+import pickle
+import threading
+
+# IP and port of Ryu App
+ipRyuApp = '127.0.0.1'
+portRyuApp = 6653
+
+# Global variable to receive the networkx.Graph
+graphReceived = False
+
+# Function to receive networkx.Graph from the Ryu App
+def receive_data_thread(graphLabel, outputTextBox):
+    guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    guiSocket.bind(ipRyuApp, portRyuApp)
+    # The socket will wait for one connection at time
+    guiSocket.listen(1)
+
+    # We reiterate the cicle infinite times, until the parent process terminate
+    while True:
+        global graphReceived
+        receivedGraph = None
+        conn, addr = guiSocket.accept()
+
+        # Receive and deserialize the graph object if there one, otherwise go to write the text logs
+        data = conn.recv(4096)
+
+        try:
+            receivedGraph = pickle.loads(data)
+        except pickle.UnpicklingError:
+            received_object = None
+
+        if not graphReceived and isinstance(receivedGraph, networkx.Graph):
+            # Create the graph and insert it into the GraphLabel
+            create_graph_image(receivedGraph, graphLabel)
+            graphReceived = True
+        elif isinstance(data, bytes):
+            # Append the text logs to the text box for the logs of Ryu App
+            add_log(outputTextBox, data.decode())
+
+# Launch a xterminal with a defined width and height
 def launch_xterm(wid, width, height):
     os.system(f'xterm -fa "Monospace" -fs 13 -into {wid} -geometry {width}x{height} -sb &')
 
@@ -47,6 +91,14 @@ def create_graph_image(netGraph, graphLabel):
     # Update the label with the image
     graphLabel.config(image=photo)
     graphLabel.image = photo
+
+# Function to start the thread for the logs management
+def start_listening_thread(graphLabel, outputTextBox):
+    parameters = (graphLabel, outputTextBox)
+
+    listening_thread = threading.Thread(target=receive_data_thread, args = parameters)
+    listening_thread.daemon = True
+    listening_thread.start()
 
 #Main function to execute the SDN GUI
 def main():
@@ -161,11 +213,14 @@ def main():
 
     # Launch xterm with specified font size and dimensions
     window.after(700, lambda: launch_xterm(wid, 800, 400))     #With the method after() we can delay the starting of the xterminal, so the dimensions of xterm are written and the terminal can take the right size
-    print(f"Questo è il PID di termf: {wid})")
+    print(f"Questo è il PID di termf: {wid}")
 
     termFrame.propagate(False)
 
 
+
+    # Start the listening thread for the log output
+    start_listening_thread(graphLabel, outputRyuText)
 
     '''# Bind the window resize event to the on_resize function
     window.bind("<Configure>", lambda event: on_resize(event, graphLabel, outputRyuText))
