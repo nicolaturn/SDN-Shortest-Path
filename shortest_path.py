@@ -214,6 +214,10 @@ class ShortestPathSwitching(app_manager.RyuApp):
                     self.logger.info("calling to shortest path with source %s destination %s", src_dpid, dst_dpid)
                     print(f"graph of the current network: {self.tm.network_graph.nodes()}\n {self.tm.network_graph.edges()} ")
                     path = self.tm.get_shortest_path(str(src_dpid),str(dst_dpid))
+                    for switch in self.tm.network_graph.nodes():
+                        if len(switch.split(":")) == 1:
+                            print(f"switch -->{switch}")
+                            self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(), 1)
                     print(f"setting flow rules in path:{path}")
                     #we check if the path has a lenght >= 2 to ensure it is valid
                     if path is not None and len(path) >= 2:

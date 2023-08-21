@@ -97,6 +97,7 @@ class TopoManager():
         self.host_ip_lookup={}
         self.host_locate = {}
         self.flow_rules={}
+        self.host_to_switch_port={}
 
     def add_switch(self, sw):
         """
@@ -129,12 +130,17 @@ class TopoManager():
         name = "host_{}".format(h.mac)
         host = TMHost(name, h)
         print("adding host...",h)
+        dpid=str(h.port.dpid)
         
 
         self.all_devices.append(host)
         self.network_graph.add_node(h.mac)
-        self.network_graph.add_edge(h.port.dpid, h.mac)
-        self.host_locate[h.mac] = {h.port.dpid}
+        self.network_graph.add_edge(dpid, h.mac)
+        self.host_locate[h.mac] = {dpid}
+        switch_dpid=dpid
+        port_no=h.port.port_no
+        self.host_to_switch_port[h.mac]={switch_dpid:port_no}
+        print(f"current mapping of the hosts with switches:{self.host_to_switch_port}")
 
     def add_host_ip_mac_mapping(self, ip, mac):
         """
@@ -244,6 +250,13 @@ class TopoManager():
                 if name==str(dev.name):
                     return dev
 
+    def get_host_port_on_switch(self,host_mac,switch_dpid):
+        if host_mac in self.host_to_switch_port and switch_dpid in self.host_to_switch_port[host_mac]:
+            switch_port=self.host_to_switch_port[host_mac][switch_dpid]
+            print(switch_port)
+            return switch_port
+        else:
+            return None
 
 
     def get_shortest_path(self, src_switch, dst_switch):
