@@ -27,6 +27,8 @@ from ofctl_utils import OfCtl, VLANID_NONE
 
 from topo_manager import TopoManager
 import logging
+import pickle
+import socket
 
 
 
@@ -34,6 +36,7 @@ import logging
 
 class ShortestPathSwitching(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
+    
 
     def __init__(self, *args, **kwargs):
         super(ShortestPathSwitching, self).__init__(*args, **kwargs)
@@ -56,6 +59,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
         # TODO:  Update network topology and flow rules
         self.tm.add_switch(switch)
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
+        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # guiSocket.connect((self.ipRyuApp, 7001))
+
+        self.send_to_thread()
+
 
     @set_ev_cls(event.EventSwitchLeave)
     def handle_switch_delete(self, ev):
@@ -69,6 +79,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
             self.logger.warn("\t%d:  %s", port.port_no, port.hw_addr)
 
         # TODO:  Update network topology and flow rules
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
+        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # guiSocket.connect((self.ipRyuApp, 7001))
+
+        self.send_to_thread()
+
         
 
     @set_ev_cls(EventHostAdd)
@@ -88,6 +105,15 @@ class ShortestPathSwitching(app_manager.RyuApp):
             self.tm.add_host_ip_mac_mapping(ip, host.mac)
         self.tm.add_host(host)
         print(f"Checking dictionaries population: host_locate->{self.tm.host_locate}")
+        print(self.tm.network_graph )
+        # self.ipRyuApp = "127.0.0.1"  
+        # self.portRyuApp = 6653  
+        # # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # # guiSocket.connect((self.ipRyuApp, 7001))
+
+        # self.send_to_thread()
+
+
 
     @set_ev_cls(event.EventLinkAdd)
     def handle_link_add(self, ev):
@@ -107,6 +133,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
         # TODO:  Update network topology and flow rules
         #self.logger.warn("link of type", type(link.src))
         self.tm.add_link(src_switch,src_port_no,dst_switch,dst_port_no)
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
+        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # guiSocket.connect((self.ipRyuApp, 7001))
+
+        self.send_to_thread()
+
 
     @set_ev_cls(event.EventLinkDelete)
     def handle_link_delete(self, ev):
@@ -120,6 +153,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.logger.warn("Deleted Link:  switch%s/%s (%s) -> switch%s/%s (%s)",
                           src_port.dpid, src_port.port_no, src_port.hw_addr,
                           dst_port.dpid, dst_port.port_no, dst_port.hw_addr)
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
+        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # guiSocket.connect((self.ipRyuApp, 7001))
+
+        self.send_to_thread()
+
 
         # TODO:  Update network topology and flow rules
 
@@ -133,13 +173,37 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.logger.warn("Port Changed:  switch%s/%s (%s):  %s",
                          port.dpid, port.port_no, port.hw_addr,
                          "UP" if port.is_live() else "DOWN")
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
+        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # guiSocket.connect((self.ipRyuApp, 7001))
+
+        self.send_to_thread()
+
 
         # TODO:  Update network topology and flow rules
+
+
+    def send_to_thread(self):
+        graph = self.tm.network_graph 
+        
+        
+        # Serialize the graph using pickle
+        serialized_graph = pickle.dumps(graph)
+
+        # Create a socket connection and send the serialized graph
+        try:
+            print("sending topology")
+            self.guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.guiSocket.connect((self.ipRyuApp, 7001))
+            self.guiSocket.send(serialized_graph)
+            self.guiSocket.close()
+        except Exception as e:
+            print("Error sending graph:", e)
+
         
 
 
-
-# ... Existing code ...
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -156,6 +220,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         parser = datapath.ofproto_parser
         in_port = msg.in_port
 
+        
         
 
         pkt = packet.Packet(msg.data)
@@ -206,6 +271,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
+
        
 
         # Call the TopoManager to get the shortest path between source and destination switches (this part gets tricky)

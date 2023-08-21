@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 import os
 from time import sleep
-from matplotlib.backend_bases import FigureCanvasBase
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg as FigureCanvas
 
 # Network graph modules
 import networkx as nx
@@ -33,57 +33,17 @@ portRyuApp = 6653
 # Global variable to receive the networkx.Graph
 graphReceived = False
 
-# Function to receive networkx.Graph from the Ryu App
-def receive_data_thread(graphLabel):
-    guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    guiSocket.bind(ipRyuApp, portRyuApp)
-    # The socket will wait for one connection at time
-    guiSocket.listen(1)
-
-    # We reiterate the cicle infinite times, until the parent process terminate
-    while True:
-        global graphReceived
-        receivedGraph = None
-        conn, addr = guiSocket.accept()
-
-        # Receive and deserialize the graph object if there one, otherwise go to write the text logs
-        data = conn.recv(4096)
-
-        try:
-            receivedGraph = pickle.loads(data)
-        except pickle.UnpicklingError:
-            received_object = None
-
-        if not graphReceived and isinstance(receivedGraph, nx.Graph):
-            # Create the graph and insert it into the GraphLabel
-            create_graph_image(receivedGraph, graphLabel)
-            graphReceived = True
-        elif isinstance(data, bytes): 
-            pass
-            # Append the text logs to the text box for the logs of Ryu App
-            #add_log(outputTextBox, data.decode())
-
-# Launch a xterminal with a defined width and height
-def launch_xterm(wid, width, height, strg):
-    os.system(f'xterm -fa "Monospace" -fs 13 -into {wid} -geometry {width}x{height} -sb -hold -e "{strg}"  &')
-
-
-# Keeping the text box for the Ryu output disable for the user, so it's a read-only logger
-def add_log(outputTextBox, outputLog):
-    outputTextBox.configure(state='normal')  # Enable the text box temporarily for modification
-    outputTextBox.insert('end', outputLog + '\n')
-    outputTextBox.configure(state='disabled')  # Disable the text box again
-    outputTextBox.see('end')  # Scroll to the end to show the latest log entry
-
 # Function to change the graph displayer
 def create_graph_image(netGraph, graphLabel):
     pos = nx.spring_layout(netGraph)
+
+    print(netGraph.nodes)
     
     nx.draw(netGraph, pos, with_labels=True, node_size=500, font_size=10, font_color='black')
     
     # Create a Matplotlib figure and draw the graph on it
-    fig = plt.figure(figsize=(5, 5))
-    canvas = FigureCanvasBase(fig)
+    fig = plt.figure(figsize=(3, 3))
+    canvas = FigureCanvas(fig)
     ax = fig.add_subplot(111)
     ax.set_axis_off()
     nx.draw(netGraph, pos, ax=ax, with_labels=True, node_size=500, font_size=10, font_color='black')
@@ -101,11 +61,66 @@ def create_graph_image(netGraph, graphLabel):
     graphLabel.image = photo
     print("label graph")
 
+# Function to receive networkx.Graph from the Ryu App
+def receive_data_thread(graphLabel):
+    try:
+        guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        guiSocket.bind((ipRyuApp, 7001))
+        # The socket will wait for one connection at a time
+        guiSocket.listen(1)
+
+        # We reiterate the cycle infinite times, until the parent process terminates
+        while True:
+            print("rec")
+            # global graphReceived
+            receivedGraph = None
+            conn, addr = guiSocket.accept()
+
+            # Receive and deserialize the graph object if there is data, otherwise go to write the text logs
+            data = conn.recv(4096)
+            if data:
+                try:
+                    receivedGraph = pickle.loads(data)
+                except pickle.UnpicklingError:
+                    received_object = None
+
+                """not graphReceived and"""
+                if isinstance(receivedGraph, nx.Graph): 
+                    # Create the graph and insert it into the GraphLabel
+                    create_graph_image(receivedGraph, graphLabel)
+                    # graphReceived = True
+                    print("ricevuto")
+                elif isinstance(data, bytes):
+                    pass
+                    # Append the text logs to the text box for the logs of the Ryu App
+                    # add_log(outputTextBox, data.decode())
+
+            # Close the connection when done
+            conn.close()
+
+    except Exception as e:
+        print("Error in receive_data_thread:", e)
+
+    
+
+# Launch a xterminal with a defined width and height
+def launch_xterm(wid, width, height, strg):
+    os.system(f'xterm -fa "Monospace" -fs 13 -into {wid} -geometry {width}x{height} -sb -hold -e "{strg}"  &')
+
+
+# Keeping the text box for the Ryu output disable for the user, so it's a read-only logger
+def add_log(outputTextBox, outputLog):
+    outputTextBox.configure(state='normal')  # Enable the text box temporarily for modification
+    outputTextBox.insert('end', outputLog + '\n')
+    outputTextBox.configure(state='disabled')  # Disable the text box again
+    outputTextBox.see('end')  # Scroll to the end to show the latest log entry
+
+
+
 # Function to start the thread for the logs management
 def start_listening_thread(graphLabel):
     parameters = (graphLabel)
-
-    listening_thread = threading.Thread(target=receive_data_thread, args = parameters)
+    listening_thread = threading.Thread(target=receive_data_thread, args = (graphLabel, ))
     listening_thread.daemon = True
     listening_thread.start()
 
@@ -259,7 +274,7 @@ def main():
     start_listening_thread(graphLabel)
 
     # Bind the window resize event to the on_resize function
-   # window.bind("<Configure>", lambda event: on_resize(event, graphLabel))
+    #window.bind("<Configure>", lambda event: on_resize(event, graphLabel))
    # window.bind("<Configure>", lambda event: resize_terminal(event, wid_mininet, termf1))
     
     window.mainloop()
