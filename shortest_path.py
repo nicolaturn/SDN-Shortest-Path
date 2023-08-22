@@ -153,6 +153,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.logger.warn("Deleted Link:  switch%s/%s (%s) -> switch%s/%s (%s)",
                           src_port.dpid, src_port.port_no, src_port.hw_addr,
                           dst_port.dpid, dst_port.port_no, dst_port.hw_addr)
+        #self.tm.remove_link(link)
         self.ipRyuApp = "127.0.0.1"  
         self.portRyuApp = 6653  
         # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -297,16 +298,17 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         second=path[i+1]
                                         print(f"setting the first element")
                                         out_port=self.tm.get_output_port(first,second)
-                                        in_port=1
+                                        in_port=self.tm.get_host_port_on_switch(str(src), str(first))
+                                        #in_port=1
                                         print(f"in_port set to 1, outport to connect with {second} set to {out_port}")
                                         self.check_rule(first,in_port,out_port)
-                                        actions=[parser.OFPActionOutput(1)]
+                                        actions=[parser.OFPActionOutput(in_port)]
                                         match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)
                                         self.add_flow(datapath,match,actions)
                                         self.tm.add_rule_to_dict(first,in_port,out_port)
                                         self.check_rule(first, out_port, in_port)
                                         actions=[parser.OFPActionOutput(out_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=1)
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)
                                         self.add_flow(datapath,match,actions)
                                         self.tm.add_rule_to_dict(first, out_port, in_port)
                                         continue
@@ -318,20 +320,21 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                          print(f"trying to set flow for {last} to connect to host under the assumption that switches and hosts are connected on port 1")
                                          #retrieving the out_port of the previous element to set in the last as the in_port
                                          in_port=self.tm.get_output_port(last,prev)
+                                         out_port=self.tm.get_host_port_on_switch(str(dst),str(last))
                                          print(f"outport:{in_port}")
                                          print("setting last rule")
                                          if in_port is not None:                                   #here it gets tricky: we take the previous switch outport  existing_out_port=self.tm.get_rule_from_dict(prv,msg.in_port)
                                               self.check_rule(last,1,in_port)
                                                    
-                                              actions=[parser.OFPActionOutput(1)]                   #and we set it as the last one switch as the in_port
+                                              actions=[parser.OFPActionOutput(out_port)]                   #and we set it as the last one switch as the in_port
                                               match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one to one, under
                                               self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 #the assumption we did earlier
-                                              self.tm.add_rule_to_dict(last,1,in_port)
-                                              self.check_rule(last, in_port,1)
+                                              self.tm.add_rule_to_dict(last,out_port,in_port)
+                                              self.check_rule(last, in_port,out_port)
                                               actions=[parser.OFPActionOutput(in_port)]
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=1)         #bidirectional flow
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)         #bidirectional flow
                                               self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
-                                              self.tm.add_rule_to_dict(last,in_port,1)
+                                              self.tm.add_rule_to_dict(last,in_port,out_port)
                                               
                                               print(f"rule state:{self.tm.flow_rules}")
                                               break

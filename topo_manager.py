@@ -211,15 +211,15 @@ class TopoManager():
         Returns:
             None
         """
-        src_dev = self.get_device_by_port(link.src)
-        dst_dev = self.get_device_by_port(link.dst)
+        src_dev = self.get_device_by_port(link.src.dpid, link.src.port_no)
+        dst_dev = self.get_device_by_port(link.dst.dpid, link.dst.port_no)
 
         if src_dev and dst_dev and isinstance(src_dev,TMSwitch) and isinstance(dst_dev,TMSwitch):
-            src_dev.neighbors.remove(dst_dev)
-            dst_dev.neighbors.remove(src_dev)
+            #src_dev.neighbors.remove(dst_dev)
+            #dst_dev.neighbors.remove(src_dev)
             src_switch=link.src.dpid
             dst_switch=link.dst.dpid
-            self.network_graph.remove_edge(src_switch,dst_switch)
+            self.network_graph.remove_edge(str(dst_switch),str(src_switch))
 
         # Remove link from data structure(s)
 
@@ -254,7 +254,7 @@ class TopoManager():
         if host_mac in self.host_to_switch_port and switch_dpid in self.host_to_switch_port[host_mac]:
             switch_port=self.host_to_switch_port[host_mac][switch_dpid]
             print(switch_port)
-            return switch_port
+            return int(switch_port) 
         else:
             return None
 
