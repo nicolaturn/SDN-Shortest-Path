@@ -134,8 +134,8 @@ class TopoManager():
         
 
         self.all_devices.append(host)
-        self.network_graph.add_node(h.mac)
-        self.network_graph.add_edge(dpid, h.mac)
+        self.network_graph.add_node(name)
+        self.network_graph.add_edge(dpid, name)
         self.host_locate[h.mac] = {dpid}
         switch_dpid=dpid
         port_no=h.port.port_no
@@ -194,10 +194,10 @@ class TopoManager():
         self.topo[src_switch][dst_switch] = src_port_no
         self.topo[dst_switch][src_switch] = dst_port_no
 
-        print("Added link edge to network_graph:", src_switch, "->", dst_switch)
-        print("Current network_graph edges:", self.network_graph.edges())
-        print("Current network_graph nodes:", self.network_graph.nodes())
-        print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n")
+        #print("Added link edge to network_graph:", src_switch, "->", dst_switch)
+        #print("Current network_graph edges:", self.network_graph.edges())
+        #print("Current network_graph nodes:", self.network_graph.nodes())
+        #print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n")
 
 
 

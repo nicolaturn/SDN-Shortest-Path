@@ -44,7 +44,8 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.tm = TopoManager()
         self.mac_to_port={}
         logging.basicConfig(level=logging.DEBUG)
-        rule_id_counter=1
+        self.ipRyuApp = "127.0.0.1"  
+        self.portRyuApp = 6653  
 
     @set_ev_cls(event.EventSwitchEnter)
     def handle_switch_add(self, ev):
@@ -61,10 +62,6 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.tm.add_switch(switch)
         self.ipRyuApp = "127.0.0.1"  
         self.portRyuApp = 6653  
-        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # guiSocket.connect((self.ipRyuApp, 7001))
-
-        self.send_to_thread()
 
 
     @set_ev_cls(event.EventSwitchLeave)
@@ -79,10 +76,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
             self.logger.warn("\t%d:  %s", port.port_no, port.hw_addr)
 
         # TODO:  Update network topology and flow rules
-        self.ipRyuApp = "127.0.0.1"  
-        self.portRyuApp = 6653  
-        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # guiSocket.connect((self.ipRyuApp, 7001))
+        
 
         self.send_to_thread()
 
@@ -94,7 +88,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         Event handler indicating a host has joined the network
         This handler is automatically triggered when a host sends an ARP response.
         """
-        self.logger.info("Handling EventHostAdds")
+        
         host = ev.host
         self.logger.warn("Host Added:  %s (IPs:  %s) on switch%s/%s (%s)",
                           host.mac, host.ipv4,
@@ -104,14 +98,10 @@ class ShortestPathSwitching(app_manager.RyuApp):
         for ip in host.ipv4:
             self.tm.add_host_ip_mac_mapping(ip, host.mac)
         self.tm.add_host(host)
-        print(f"Checking dictionaries population: host_locate->{self.tm.host_locate}")
-        print(self.tm.network_graph )
-        # self.ipRyuApp = "127.0.0.1"  
-        # self.portRyuApp = 6653  
-        # # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # # guiSocket.connect((self.ipRyuApp, 7001))
+        self.logger.warn(f"Checking dictionaries population: host_locate->{self.tm.host_locate}")
+        self.logger.warn(self.tm.network_graph )
 
-        # self.send_to_thread()
+        self.send_to_thread()
 
 
 
@@ -120,7 +110,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         """
         Event handler indicating a link between two switches has been added
         """
-        self.logger.warn("adding link....")
+    
         link = ev.link
         src_switch=link.src.dpid
         src_port_no=link.src.port_no
@@ -131,14 +121,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
                          #dst_port.dpid, dst_port.port_no, dst_port.hw_addr)
 
         # TODO:  Update network topology and flow rules
-        #self.logger.warn("link of type", type(link.src))
         self.tm.add_link(src_switch,src_port_no,dst_switch,dst_port_no)
-        self.ipRyuApp = "127.0.0.1"  
-        self.portRyuApp = 6653  
-        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # guiSocket.connect((self.ipRyuApp, 7001))
-
-        self.send_to_thread()
 
 
     @set_ev_cls(event.EventLinkDelete)
@@ -150,16 +133,10 @@ class ShortestPathSwitching(app_manager.RyuApp):
         src_port = link.src
         dst_port = link.dst
 
-        self.logger.warn("Deleted Link:  switch%s/%s (%s) -> switch%s/%s (%s)",
-                          src_port.dpid, src_port.port_no, src_port.hw_addr,
-                          dst_port.dpid, dst_port.port_no, dst_port.hw_addr)
-        #self.tm.remove_link(link)
-        self.ipRyuApp = "127.0.0.1"  
-        self.portRyuApp = 6653  
-        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # guiSocket.connect((self.ipRyuApp, 7001))
+        # self.logger.warn("Deleted Link:  switch%s/%s (%s) -> switch%s/%s (%s)",
+        #                   src_port.dpid, src_port.port_no, src_port.hw_addr,
+        #                   dst_port.dpid, dst_port.port_no, dst_port.hw_addr)
 
-        self.send_to_thread()
 
 
         # TODO:  Update network topology and flow rules
@@ -174,12 +151,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.logger.warn("Port Changed:  switch%s/%s (%s):  %s",
                          port.dpid, port.port_no, port.hw_addr,
                          "UP" if port.is_live() else "DOWN")
-        self.ipRyuApp = "127.0.0.1"  
-        self.portRyuApp = 6653  
-        # guiSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # guiSocket.connect((self.ipRyuApp, 7001))
-
-        self.send_to_thread()
+        
 
 
         # TODO:  Update network topology and flow rules
@@ -255,42 +227,25 @@ class ShortestPathSwitching(app_manager.RyuApp):
         src = eth.src
 
         dpid = datapath.id
-        print(f"datapath tracked:{datapath}")
+        #print(f"datapath tracked:{datapath}")
         src_dpid = self.tm.dpid_hostLookup(src)
         dst_dpid = self.tm.dpid_hostLookup(dst)
         self.mac_to_port.setdefault(dpid, {})
 
         if dst_dpid is not None:
-            self.logger.info("\n\tpacket in %s %s %s %s %s", dpid, src, dst, dst_dpid, in_port)
+            self.logger.info("packet in %s %s %s %s %s", dpid, src, dst, dst_dpid, in_port)
 
-        # Learn a MAC address 
-        self.mac_to_port[dpid][src] = in_port
-
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-        else:
-            out_port = ofproto.OFPP_FLOOD
-
-        actions = [parser.OFPActionOutput(out_port)]
-
-       
-
-        # Call the TopoManager to get the shortest path between source and destination switches (this part gets tricky)
+        # Call the TopoManager to get the shortest path between source and destination switches 
         if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
                     #after checking that the src and destination ar in our topo dictionary we call the shortest path on the topo manager
-                    self.logger.info("calling to shortest path with source %s destination %s", src_dpid, dst_dpid)
-                    print(f"graph of the current network: {self.tm.network_graph.nodes()}\n {self.tm.network_graph.edges()} ")
+                    
+                    
                     path = self.tm.get_shortest_path(str(src_dpid),str(dst_dpid))
-                    for switch in self.tm.network_graph.nodes():
-                        if len(switch.split(":")) == 1:
-                            print(f"switch -->{switch}")
-                            self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(), 1)
-                    print(f"setting flow rules in path:{path}")
+                    self.logger.info(f"setting flow rules in path:{path}")
                     #we check if the path has a lenght >= 2 to ensure it is valid
                     if path is not None and len(path) >= 2:
-                                print(f"lenght of path:{len(path)}")
+                                self.logger.info(f"lenght of path:{len(path)}")
                                 for i in range(0, len(path)): #we add one to lenght to iterate properly on every switch
-                                    print (f"{i} iteration on path of lenght: {len(path)} to set up rules")
                                     #if it is the last switch the logic needs to be different
                                     
                                     if(i==0):
@@ -299,14 +254,11 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         print(f"setting the first element")
                                         out_port=self.tm.get_output_port(first,second)
                                         in_port=self.tm.get_host_port_on_switch(str(src), str(first))
-                                        #in_port=1
-                                        print(f"in_port set to 1, outport to connect with {second} set to {out_port}")
                                         self.check_rule(first,in_port,out_port)
                                         actions=[parser.OFPActionOutput(in_port)]
                                         match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)
                                         self.add_flow(datapath,match,actions)
                                         self.tm.add_rule_to_dict(first,in_port,out_port)
-                                        self.check_rule(first, out_port, in_port)
                                         actions=[parser.OFPActionOutput(out_port)]
                                         match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)
                                         self.add_flow(datapath,match,actions)
@@ -316,27 +268,23 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                     if(i==len(path)-1):
                                          last=path[i]
                                          prev=path[i-1]
-                                         #the main assumption we make: every switch needs to communicate with the host on port 1
-                                         print(f"trying to set flow for {last} to connect to host under the assumption that switches and hosts are connected on port 1")
+                                         self.logger.info(f"trying to set flow for {last} to connect to host")
                                          #retrieving the out_port of the previous element to set in the last as the in_port
                                          in_port=self.tm.get_output_port(last,prev)
                                          out_port=self.tm.get_host_port_on_switch(str(dst),str(last))
-                                         print(f"outport:{in_port}")
-                                         print("setting last rule")
-                                         if in_port is not None:                                   #here it gets tricky: we take the previous switch outport  existing_out_port=self.tm.get_rule_from_dict(prv,msg.in_port)
+                                         if in_port is not None:                                   #we take the previous switch outport -> existing_out_port=self.tm.get_rule_from_dict(prv,msg.in_port)
                                               self.check_rule(last,1,in_port)
                                                    
                                               actions=[parser.OFPActionOutput(out_port)]                   #and we set it as the last one switch as the in_port
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one to one, under
-                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 #the assumption we did earlier
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one
+                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 
                                               self.tm.add_rule_to_dict(last,out_port,in_port)
-                                              self.check_rule(last, in_port,out_port)
                                               actions=[parser.OFPActionOutput(in_port)]
                                               match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)         #bidirectional flow
                                               self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
                                               self.tm.add_rule_to_dict(last,in_port,out_port)
                                               
-                                              print(f"rule state:{self.tm.flow_rules}")
+                                              self.logger.warn(f"rule state:{self.tm.flow_rules}")
                                               break
                                          
                                     #otherwise the logic is straightforward: retrieve the previous and next switch
@@ -344,32 +292,27 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         prev=path[i-1]
                                         current = path[i]
                                         next = path[i+1]
-                                        print(f"trying to set flow between {prev}, {current} and {next}")
+                                        self.logger.info(f"trying to set flow between {prev}, {current} and {next}")
                                         #getting the out port to set on the prv switch
                                         in_port = self.tm.get_output_port(current, prev)
                                         out_port=self.tm.get_output_port(current,next)
-                                        print(f"outport:{out_port}")
+        
                                         if out_port is not None:
         
                                             
                                             
                                             # Create match object
-                                            print(f"in_port retrieved:{in_port}, out_port retrieved:{out_port}")
+                                            
                                             self.check_rule(current,in_port,out_port)
                                             match = ofproto_v1_0_parser.OFPMatch(in_port=in_port)
                                             actions = [parser.OFPActionOutput(out_port)]
-                                            print(f"match and actions: {match}, {actions}")
-                                            
-                                            # Add flow rule to the current switch
                                             self.add_flow(self.tm.get_device_by_name(current).get_dp(), match, actions)
-                                            self.check_rule(current,out_port,in_port) 
                                             actions=[parser.OFPActionOutput(in_port)]
                                             match=ofproto_v1_0_parser.OFPMatch(in_port=out_port) #bidirectional flow
-                                            print(f"bidirectional match and actions: {match}, {actions}")
                                             self.add_flow(self.tm.get_device_by_name(current).get_dp(),match , actions)
                                             self.tm.add_rule_to_dict(current,in_port,out_port)
                                             self.tm.add_rule_to_dict(current,out_port,in_port)
-                                            print(f"rule state:{self.tm.flow_rules}")
+                                            self.logger.warn(f"rule state:{self.tm.flow_rules}")
                                         
                                 
                             
@@ -379,9 +322,8 @@ class ShortestPathSwitching(app_manager.RyuApp):
         # Check if the destination IP is in your topology manager's hosts
         if arp_packet.dst_ip in self.tm.host_ip_lookup:
             dst_mac = self.tm.host_ip_lookup[arp_packet.dst_ip]
-            print(f"sending the mac: {dst_mac}")
-            print(f"Received ARP request for {arp_packet.dst_ip} from {arp_packet.src_ip}")
-            print(f"Sending ARP reply to {arp_packet.src_ip} with MAC address: {dst_mac}")
+            self.logger.info(f"Received ARP request for {arp_packet.dst_ip} from {arp_packet.src_ip}")
+            self.logger.info(f"Sending ARP reply to {arp_packet.src_ip} with MAC address: {dst_mac}")
             # Update the ARP reply packet with the correct MAC address
             arp_reply = arp.arp(
                 opcode=arp.ARP_REPLY,
@@ -412,7 +354,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
                 data=pkt.data
             )
             datapath.send_msg(out)
-            print("terminated")
+            
         else:
             # If the destination IP is not known in the network, you can either flood the ARP request
             # or drop it. Here, I will simply drop the ARP request.
@@ -441,19 +383,17 @@ class ShortestPathSwitching(app_manager.RyuApp):
             actions=actions,
              
         )
-        res=datapath.send_msg(flow_mod)
-        print(f"inside add_flow:{res}")
+        datapath.send_msg(flow_mod)
     
     def check_rule(self, switch, in_port, out_port):
-         print(f"checking rules")
          existing_rule=self.tm.get_rule_from_dict(switch,in_port)
          if existing_rule is not None and (existing_rule!=out_port):
-              print(f"found already existing rule on in_port:{in_port} for switch:{switch} on out_port:{existing_rule}")
+              self.logger.warn(f"found already existing rule on in_port:{in_port} for switch:{switch} on out_port:{existing_rule}")
               del self.tm.flow_rules[switch]
               self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),in_port)
          existing_rule=self.tm.get_rule_from_dict(switch,out_port)
          if existing_rule is not None and (existing_rule!=in_port):
-              print(f"found already existing rule on in_port:{out_port} for switch:{switch} on out_port:{existing_rule}")
+              self.logger.warn(f"found already existing rule on in_port:{out_port} for switch:{switch} on out_port:{existing_rule}")
               del self.tm.flow_rules[switch]
               self.delete_flow_rule(self.tm.get_device_by_name(switch).get_dp(),out_port)
 

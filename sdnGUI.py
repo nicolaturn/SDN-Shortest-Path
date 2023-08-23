@@ -59,7 +59,7 @@ def create_graph_image(netGraph, graphLabel):
     # Update the label with the image
     graphLabel.config(image=photo)
     graphLabel.image = photo
-    print("label graph")
+    
 
 # Function to receive networkx.Graph from the Ryu App
 def receive_data_thread(graphLabel):
@@ -71,7 +71,7 @@ def receive_data_thread(graphLabel):
 
         # We reiterate the cycle infinite times, until the parent process terminates
         while True:
-            print("rec")
+            
             # global graphReceived
             receivedGraph = None
             conn, addr = guiSocket.accept()
@@ -89,7 +89,7 @@ def receive_data_thread(graphLabel):
                     # Create the graph and insert it into the GraphLabel
                     create_graph_image(receivedGraph, graphLabel)
                     # graphReceived = True
-                    print("ricevuto")
+                    
                 elif isinstance(data, bytes):
                     pass
                     # Append the text logs to the text box for the logs of the Ryu App
