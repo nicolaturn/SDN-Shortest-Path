@@ -97,8 +97,8 @@ To test the communication between a pair of hosts:
 
 The project team is composed by:
 
--[@nicoloeffe](https://github.com/nicoloeffe)
--[@giuliomuraro](https://github.com/GiulioMuraro)
--[@nicolaturn](https://github.com/nicolaturn)
+[@nicoloeffe](https://github.com/nicoloeffe)
+[@giuliomuraro](https://github.com/GiulioMuraro)
+[@nicolaturn](https://github.com/nicolaturn)
 
 
