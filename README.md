@@ -46,6 +46,8 @@ Before using the SDN controller and running Mininet topologies, ensure you have 
 - Arping
 - Matplotlib
 - PIL
+- Tkinter
+- Pickle
 
 ## Usage
 
