@@ -256,11 +256,11 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                         in_port=self.tm.get_host_port_on_switch(str(src), str(first))
                                         self.check_rule(first,in_port,out_port)
                                         actions=[parser.OFPActionOutput(in_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst)
                                         self.add_flow(datapath,match,actions)
                                         self.tm.add_rule_to_dict(first,in_port,out_port)
                                         actions=[parser.OFPActionOutput(out_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)
+                                        match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)
                                         self.add_flow(datapath,match,actions)
                                         self.tm.add_rule_to_dict(first, out_port, in_port)
                                         continue
@@ -276,11 +276,11 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                               self.check_rule(last,1,in_port)
                                                    
                                               actions=[parser.OFPActionOutput(out_port)]                   #and we set it as the last one switch as the in_port
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port)  #then we set the out_port of the last one
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)  #then we set the out_port of the last one
                                               self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 
                                               self.tm.add_rule_to_dict(last,out_port,in_port)
                                               actions=[parser.OFPActionOutput(in_port)]
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port)         #bidirectional flow
+                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst)         #bidirectional flow
                                               self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
                                               self.tm.add_rule_to_dict(last,in_port,out_port)
                                               
@@ -304,11 +304,11 @@ class ShortestPathSwitching(app_manager.RyuApp):
                                             # Create match object
                                             
                                             self.check_rule(current,in_port,out_port)
-                                            match = ofproto_v1_0_parser.OFPMatch(in_port=in_port)
+                                            match = ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)
                                             actions = [parser.OFPActionOutput(out_port)]
                                             self.add_flow(self.tm.get_device_by_name(current).get_dp(), match, actions)
                                             actions=[parser.OFPActionOutput(in_port)]
-                                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port) #bidirectional flow
+                                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst) #bidirectional flow
                                             self.add_flow(self.tm.get_device_by_name(current).get_dp(),match , actions)
                                             self.tm.add_rule_to_dict(current,in_port,out_port)
                                             self.tm.add_rule_to_dict(current,out_port,in_port)

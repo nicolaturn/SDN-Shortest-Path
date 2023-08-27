@@ -102,4 +102,6 @@ class CustomCLI(CLI):
             client_cmd = f"python3 scriptClient.py {url}"
             res = self.mn[host_name].cmd(client_cmd)
             print(res)
+
+    
     
