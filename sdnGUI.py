@@ -23,15 +23,11 @@ import socket
 import pickle
 import threading
 import subprocess
-
-
-
+import time
 
 # IP and port of Ryu App
 ipRyuApp = '127.0.0.1'
 portRyuApp = 6653
-# Global variable to receive the networkx.Graph
-graphReceived = False
 
 # Function to change the graph displayer
 def create_graph_image(netGraph, graphLabel):
@@ -71,8 +67,6 @@ def receive_data_thread(graphLabel):
 
         # We reiterate the cycle infinite times, until the parent process terminates
         while True:
-            
-            # global graphReceived
             receivedGraph = None
             conn, addr = guiSocket.accept()
 
@@ -82,14 +76,12 @@ def receive_data_thread(graphLabel):
                 try:
                     receivedGraph = pickle.loads(data)
                 except pickle.UnpicklingError:
-                    received_object = None
+                    receivedGraph = None
 
                 """not graphReceived and"""
-                if isinstance(receivedGraph, nx.Graph): 
+                if isinstance(receivedGraph, nx.Graph):
                     # Create the graph and insert it into the GraphLabel
                     create_graph_image(receivedGraph, graphLabel)
-                    # graphReceived = True
-                    
                 elif isinstance(data, bytes):
                     pass
                     # Append the text logs to the text box for the logs of the Ryu App
@@ -116,16 +108,14 @@ def add_log(outputTextBox, outputLog):
     outputTextBox.see('end')  # Scroll to the end to show the latest log entry
 
 
-
 # Function to start the thread for the logs management
 def start_listening_thread(graphLabel):
-    parameters = (graphLabel)
     listening_thread = threading.Thread(target=receive_data_thread, args = (graphLabel, ))
     listening_thread.daemon = True
     listening_thread.start()
 
 
-
+# Define functions of buttons to load topology
 def button1():
     launch_xterm(wid_output, 900, 300, "sudo mn -c && ryu-manager --observe-links shortest_path.py")
     sleep(5)
@@ -140,10 +130,11 @@ def button3():
     launch_xterm(wid_output, 900, 300, "sudo mn -c && ryu-manager --observe-links shortest_path.py")
     sleep(5)
     launch_xterm(wid_mininet, 900, 300, " sudo python3 run_mininet.py longpath")
-        
 
-#Main function to execute the SDN GUI
+
+# Main function to execute the SDN GUI
 def main():
+    # To access global variables
     global wid_mininet
     global wid_output
 
@@ -251,8 +242,6 @@ def main():
     termFrame = ttk.Frame(window, style = 'RoundedFrame.TFrame', height = 400, width = 700)
     termFrame.grid(row = 1, column = 1, sticky = 'se')
 
-    
-
     # The title of the terminal
     titleLabelTerminal = ttk.Label(termFrame, text="Terminal for Mininet CLI", background = "lightgray", borderwidth = 10, font=("Helvetica", 13))
     titleLabelTerminal.pack(side='top', fill = 'none', expand = False, padx = 10, pady = 5)
@@ -268,14 +257,8 @@ def main():
 
     termFrame.propagate(False)
 
-
-
     # Start the listening thread for the log output
     start_listening_thread(graphLabel)
-
-    # Bind the window resize event to the on_resize function
-    #window.bind("<Configure>", lambda event: on_resize(event, graphLabel))
-   # window.bind("<Configure>", lambda event: resize_terminal(event, wid_mininet, termf1))
     
     window.mainloop()
 

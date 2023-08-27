@@ -23,15 +23,10 @@ from ryu.topology.event import EventHostAdd
 from ryu.lib.packet import packet, ether_types
 from ryu.lib.packet import ethernet, arp, icmp
 
-from ofctl_utils import OfCtl, VLANID_NONE
-
 from topo_manager import TopoManager
 import logging
 import pickle
 import socket
-
-
-
 
 
 class ShortestPathSwitching(app_manager.RyuApp):
@@ -173,9 +168,6 @@ class ShortestPathSwitching(app_manager.RyuApp):
             self.guiSocket.close()
         except Exception as e:
             print("Error sending graph:", e)
-
-        
-
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
