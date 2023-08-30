@@ -2,6 +2,9 @@
 
 from mininet.cli import CLI
 from mininet.log import error
+from urllib.parse import urlparse
+import socket
+import requests
 
 class CustomCLI(CLI):
     def do_simulate_communication(self, line):
@@ -96,12 +99,38 @@ class CustomCLI(CLI):
             error("Usage: simulate_client_request <host_name> <url>\n")
         else:
             host_name = args[0]
+            src_host=self.mn[host_name].IP()
             url = args[1]
+            parsed_url=urlparse(url)
+            dst_host=parsed_url.hostname
+            controller_ip="127.0.0.1"
+            controller_uri=f"http://localhost:8080/comunication/{src_host}/{dst_host}"
+            print(f"controller uri:{controller_uri}")
+            print(f"retrieved server domain: {dst_host}")
+            host=None
+            for h in self.mn.values():
+                if h.IP()==dst_host:
+                    host=h
+                    print(f"host retrieved by its ip:{host}")
+                    break
+            if host is None:
+                print(f"no host retrieved at {dst_host}")
+                return
+
+            res=h.cmd("pgrep -f 'python3 -m scriptServer 80'")
 
             # Simulate a client request by executing the client script
-            client_cmd = f"python3 scriptClient.py {url}"
-            res = self.mn[host_name].cmd(client_cmd)
-            print(res)
+            if res:
+                controller_response=requests.get(controller_uri)
+                print(controller_response)
+                controller_response=requests.get("http://localhost:8080/test")
+                print(controller_response)
+                client_cmd = f"python3 scriptClient.py {url}"
+                res = self.mn[host_name].cmd(client_cmd)
+                print(res)
+            else:
+                print(f"Request not sent due to server unavailability")
+
 
     
     

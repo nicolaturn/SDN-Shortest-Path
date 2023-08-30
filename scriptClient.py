@@ -17,6 +17,8 @@ domain_name = url.split('//')[-1].split('/')[0]
 
 # Perform a DNS lookup to get the IP address
 ip_address = socket.gethostbyname(domain_name)
+client_ip_addres=socket.gethostbyname(socket.gethostname())
+
 
 print(f"Host is trying to get the web page of the web server, with IP address: {ip_address}")
 

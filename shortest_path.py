@@ -19,6 +19,7 @@ from ryu.ofproto import ofproto_v1_0, ofproto_v1_0_parser
 from ryu.topology import event, switches
 import ryu.topology.api as topo
 from ryu.topology.event import EventHostAdd
+from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 from ryu.lib.packet import packet, ether_types
 from ryu.lib.packet import ethernet, arp, icmp
@@ -27,11 +28,34 @@ from topo_manager import TopoManager
 import logging
 import pickle
 import socket
+import requests
+from webob import Response
+
+class CommunicationAPI(ControllerBase):
+    def __init__(self, req, link, data, **config):
+        super(CommunicationAPI, self).__init__(req, link, data, **config)
+        self.controller_app = data['controller_instance']
+        
+        
+    
+    @route('comunication', '/comunication/{src_host}/{dst_host}', methods=['GET'])
+    def initiate_communication(self, req, src_host, dst_host):
+        print("received request!")
+        # Example: Call a method from the main controller
+        
+        return Response(status=200)
+    
+    @route('test', '/test',methods=['GET'])
+    def test_route(self,req):
+        print("received request at test route!")
+        return Response(status=200)
+    
 
 
 class ShortestPathSwitching(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     
+    _CONTEXTS={'wsgi':WSGIApplication}
 
     def __init__(self, *args, **kwargs):
         super(ShortestPathSwitching, self).__init__(*args, **kwargs)
@@ -40,7 +64,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
         self.mac_to_port={}
         logging.basicConfig(level=logging.DEBUG)
         self.ipRyuApp = "127.0.0.1"  
-        self.portRyuApp = 6653  
+        self.portRyuApp = 6653 
+        wsgi=kwargs['wsgi']
+        wsgi.register(CommunicationAPI,{'controller_instance':self}) 
+        self.controller_instance = self
+    
+        
+    
 
     @set_ev_cls(event.EventSwitchEnter)
     def handle_switch_add(self, ev):
@@ -416,8 +446,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
 
 if __name__ == '__main__':
-    from ryu.cmd import main
+    
 
     # Run the Ryu controller
     app_manager.run_eventlet(ShortestPathSwitching)
+    # controller=ShortestPathSwitching()
+    # wsgi=WSGIApplication()
+    # wsgi.register(CommunicationAPI,{'app':controller})
+    
+    
 
