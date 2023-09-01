@@ -123,8 +123,7 @@ class CustomCLI(CLI):
             if res:
                 controller_response=requests.get(controller_uri)
                 print(controller_response)
-                controller_response=requests.get("http://localhost:8080/test")
-                print(controller_response)
+                
                 client_cmd = f"python3 scriptClient.py {url}"
                 res = self.mn[host_name].cmd(client_cmd)
                 print(res)

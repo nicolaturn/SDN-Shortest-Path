@@ -92,6 +92,7 @@ class TopoManager():
         self.all_devices = []
         self.all_links = []
         self.network_graph = nx.Graph()
+        self.gui_graph=nx.Graph()
         self.topo = {}
         self.host_ip_lookup={}
         self.host_locate = {}
@@ -111,6 +112,7 @@ class TopoManager():
 
         self.all_devices.append(switch)
         self.network_graph.add_node(str(sw.dp.id))
+        self.gui_graph.add_node(str(sw.dp.id))
         dpid_str = str(sw.dp.id)
         if dpid_str not in self.topo:
             self.topo[dpid_str] = {}
@@ -130,11 +132,15 @@ class TopoManager():
         host = TMHost(name, h)
         print("adding host...",h)
         dpid=str(h.port.dpid)
-        
+        host_ip=""
+        for ip in h.ipv4:
+            self.gui_graph.add_node(ip)
+            host_ip=ip
 
         self.all_devices.append(host)
         self.network_graph.add_node(name)
         self.network_graph.add_edge(dpid, name)
+        self.gui_graph.add_edge(dpid,host_ip)
         self.host_locate[h.mac] = {dpid}
         switch_dpid=dpid
         port_no=h.port.port_no
@@ -175,11 +181,14 @@ class TopoManager():
         # Add switches as nodes to the network graph (if they are not already added)
         if src_switch not in self.network_graph.nodes:
             self.network_graph.add_node(src_switch)
+            self.gui_graph.add_node(src_switch)
         if dst_switch not in self.network_graph.nodes:
             self.network_graph.add_node(dst_switch)
+            self.gui_graph.add_node(dst_switch)
 
         # Add the link to the network graph
         self.network_graph.add_edge(src_switch, dst_switch)
+        self.gui_graph.add_edge(src_switch,dst_switch)
         
         # Add src_switch to self.topo if not present
         if src_switch not in self.topo:
@@ -193,10 +202,7 @@ class TopoManager():
         self.topo[src_switch][dst_switch] = src_port_no
         self.topo[dst_switch][src_switch] = dst_port_no
 
-        #print("Added link edge to network_graph:", src_switch, "->", dst_switch)
-        #print("Current network_graph edges:", self.network_graph.edges())
-        #print("Current network_graph nodes:", self.network_graph.nodes())
-        #print(f"Current dictionaries:topo->{self.topo}\n host_locate->{self.host_locate}\n")
+        
 
 
 
@@ -214,8 +220,7 @@ class TopoManager():
         dst_dev = self.get_device_by_port(link.dst.dpid, link.dst.port_no)
 
         if src_dev and dst_dev and isinstance(src_dev,TMSwitch) and isinstance(dst_dev,TMSwitch):
-            #src_dev.neighbors.remove(dst_dev)
-            #dst_dev.neighbors.remove(src_dev)
+            
             src_switch=link.src.dpid
             dst_switch=link.dst.dpid
             self.network_graph.remove_edge(str(dst_switch),str(src_switch))
@@ -242,10 +247,8 @@ class TopoManager():
     
     def get_device_by_name(self, name):
         name="switch_"+name
-        #print(f"name is: {name}")
         for dev in self.all_devices:
             if isinstance (dev, TMSwitch):
-                #print(f" device : {dev.switch}, name: {dev.name}")
                 if name==str(dev.name):
                     return dev
 

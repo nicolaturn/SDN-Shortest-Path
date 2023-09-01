@@ -35,13 +35,15 @@ class CommunicationAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(CommunicationAPI, self).__init__(req, link, data, **config)
         self.controller_app = data['controller_instance']
+
         
         
     
     @route('comunication', '/comunication/{src_host}/{dst_host}', methods=['GET'])
     def initiate_communication(self, req, src_host, dst_host):
         print("received request!")
-        # Example: Call a method from the main controller
+        self.controller_app.set_up_rules(src_host,dst_host)
+        
         
         return Response(status=200)
     
@@ -62,7 +64,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
         self.tm = TopoManager()
         self.mac_to_port={}
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.INFO)
         self.ipRyuApp = "127.0.0.1"  
         self.portRyuApp = 6653 
         wsgi=kwargs['wsgi']
@@ -183,7 +185,7 @@ class ShortestPathSwitching(app_manager.RyuApp):
 
 
     def send_to_thread(self):
-        graph = self.tm.network_graph 
+        graph = self.tm.gui_graph 
         
         
         # Serialize the graph using pickle
@@ -199,7 +201,88 @@ class ShortestPathSwitching(app_manager.RyuApp):
         except Exception as e:
             print("Error sending graph:", e)
 
+    def set_up_rules(self, src_ip, dst_ip):
+        """
+        Function callable by the CommunicationAPI to set up flow rules between two hosts
+        Parameters:
+            src_ip: source ip address of one host
+            dst_ip: destination ip address of the other host
+        Returns:
+            None
+        """
+        src_mac=self.tm.host_ip_lookup[src_ip]
+        dst_mac=self.tm.host_ip_lookup[dst_ip]
+        src_dpid=self.tm.dpid_hostLookup(src_mac)
+        dst_dpid=self.tm.dpid_hostLookup(dst_mac)
+        parser=ofproto_v1_0_parser
 
+        
+        self.logger.info(f"Setting rules between {src_ip} and {dst_ip}")
+
+        if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
+            path=self.tm.get_shortest_path(str(src_dpid), str(dst_dpid))
+
+            if path is not None and len(path)>=2:
+                for i in range(0,len(path)):
+                    if i==0:
+                        #first step of the path: need to set_up the port with the src_host
+                        first=path[i]
+                        second=path[i+1]
+                        out_port=self.tm.get_output_port(first,second)
+                        in_port=self.tm.get_host_port_on_switch(src_mac,first)
+                        self.check_rule(first,in_port,out_port)
+                        actions=[parser.OFPActionOutput(in_port)]
+                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=dst_mac,dl_dst=src_mac)
+                        self.add_flow(self.tm.get_device_by_name(first).get_dp(),match,actions)
+                        self.tm.add_rule_to_dict(first,in_port,out_port)
+                        actions=[parser.OFPActionOutput(out_port)]
+                        match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src_mac,dl_dst=dst_mac)
+                        self.add_flow(self.tm.get_device_by_name(first).get_dp(),match,actions)
+                        self.tm.add_rule_to_dict(first, out_port, in_port)
+                        continue
+                    if i==len(path)-1:
+                        #last step of the path: need to set_up the port with the dst_host
+                        last=path[i]
+                        prev=path[i-1]
+                        out_port=self.tm.get_host_port_on_switch(str(dst_mac),str(last))
+                        in_port=self.tm.get_output_port(last,prev)
+                        if in_port is not None:                                   
+                            self.check_rule(last,out_port,in_port)
+                                                   
+                            actions=[parser.OFPActionOutput(out_port)]                   
+                            match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src_mac,dl_dst=dst_mac)  
+                            self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 
+                            self.tm.add_rule_to_dict(last,out_port,in_port)
+                            actions=[parser.OFPActionOutput(in_port)]
+                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=dst_mac,dl_dst=src_mac)         #bidirectional flow
+                            self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
+                            self.tm.add_rule_to_dict(last,in_port,out_port)
+                                              
+                            self.logger.warn(f"rule state:{self.tm.flow_rules}")
+                            break
+                    else:
+                        #otherwise we are between two switches: get the in_port of the current by checking the out_port of the previous
+                        #the out_port by checking the in_port of the next one
+                        prev=path[i-1]
+                        current = path[i]
+                        next = path[i+1]
+                        self.logger.info(f"trying to set flow between {prev}, {current} and {next}")   
+                        in_port = self.tm.get_output_port(current, prev)
+                        out_port=self.tm.get_output_port(current,next)
+        
+                        if out_port is not None:
+                                            
+                            self.check_rule(current,in_port,out_port)
+                            match = ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src_mac,dl_dst=dst_mac)
+                            actions = [parser.OFPActionOutput(out_port)]
+                            self.add_flow(self.tm.get_device_by_name(current).get_dp(), match, actions)
+                            actions=[parser.OFPActionOutput(in_port)]
+                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=dst_mac,dl_dst=src_mac) #bidirectional flow
+                            self.add_flow(self.tm.get_device_by_name(current).get_dp(),match , actions)
+                            self.tm.add_rule_to_dict(current,in_port,out_port)
+                            self.tm.add_rule_to_dict(current,out_port,in_port)
+                            self.logger.warn(f"rule state:{self.tm.flow_rules}")
+    
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         """
@@ -211,8 +294,6 @@ class ShortestPathSwitching(app_manager.RyuApp):
                             ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
         datapath = msg.datapath
-        ofproto = datapath.ofproto      #set up the main objects in order to set up the forwarding rule
-        parser = datapath.ofproto_parser
         in_port = msg.in_port
 
         
@@ -249,92 +330,13 @@ class ShortestPathSwitching(app_manager.RyuApp):
         src = eth.src
 
         dpid = datapath.id
-        #print(f"datapath tracked:{datapath}")
-        src_dpid = self.tm.dpid_hostLookup(src)
         dst_dpid = self.tm.dpid_hostLookup(dst)
         self.mac_to_port.setdefault(dpid, {})
 
         if dst_dpid is not None:
             self.logger.info("packet in %s %s %s %s %s", dpid, src, dst, dst_dpid, in_port)
 
-        # Call the TopoManager to get the shortest path between source and destination switches 
-        if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
-                    #after checking that the src and destination ar in our topo dictionary we call the shortest path on the topo manager
-                    
-                    
-                    path = self.tm.get_shortest_path(str(src_dpid),str(dst_dpid))
-                    self.logger.info(f"setting flow rules in path:{path}")
-                    #we check if the path has a lenght >= 2 to ensure it is valid
-                    if path is not None and len(path) >= 2:
-                                self.logger.info(f"lenght of path:{len(path)}")
-                                for i in range(0, len(path)): #we add one to lenght to iterate properly on every switch
-                                    #if it is the last switch the logic needs to be different
-                                    
-                                    if(i==0):
-                                        first=path[i]
-                                        second=path[i+1]
-                                        print(f"setting the first element")
-                                        out_port=self.tm.get_output_port(first,second)
-                                        in_port=self.tm.get_host_port_on_switch(str(src), str(first))
-                                        self.check_rule(first,in_port,out_port)
-                                        actions=[parser.OFPActionOutput(in_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst)
-                                        self.add_flow(datapath,match,actions)
-                                        self.tm.add_rule_to_dict(first,in_port,out_port)
-                                        actions=[parser.OFPActionOutput(out_port)]
-                                        match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)
-                                        self.add_flow(datapath,match,actions)
-                                        self.tm.add_rule_to_dict(first, out_port, in_port)
-                                        continue
-                                        
-                                    if(i==len(path)-1):
-                                         last=path[i]
-                                         prev=path[i-1]
-                                         self.logger.info(f"trying to set flow for {last} to connect to host")
-                                         #retrieving the out_port of the previous element to set in the last as the in_port
-                                         in_port=self.tm.get_output_port(last,prev)
-                                         out_port=self.tm.get_host_port_on_switch(str(dst),str(last))
-                                         if in_port is not None:                                   #we take the previous switch outport -> existing_out_port=self.tm.get_rule_from_dict(prv,msg.in_port)
-                                              self.check_rule(last,1,in_port)
-                                                   
-                                              actions=[parser.OFPActionOutput(out_port)]                   #and we set it as the last one switch as the in_port
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)  #then we set the out_port of the last one
-                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(),match,actions)                 
-                                              self.tm.add_rule_to_dict(last,out_port,in_port)
-                                              actions=[parser.OFPActionOutput(in_port)]
-                                              match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst)         #bidirectional flow
-                                              self.add_flow(self.tm.get_device_by_name(last).get_dp(), match,actions)
-                                              self.tm.add_rule_to_dict(last,in_port,out_port)
-                                              
-                                              self.logger.warn(f"rule state:{self.tm.flow_rules}")
-                                              break
-                                         
-                                    #otherwise the logic is straightforward: retrieve the previous and next switch
-                                    else:
-                                        prev=path[i-1]
-                                        current = path[i]
-                                        next = path[i+1]
-                                        self.logger.info(f"trying to set flow between {prev}, {current} and {next}")
-                                        #getting the out port to set on the prv switch
-                                        in_port = self.tm.get_output_port(current, prev)
-                                        out_port=self.tm.get_output_port(current,next)
-        
-                                        if out_port is not None:
-        
-                                            
-                                            
-                                            # Create match object
-                                            
-                                            self.check_rule(current,in_port,out_port)
-                                            match = ofproto_v1_0_parser.OFPMatch(in_port=in_port,dl_src=src,dl_dst=dst)
-                                            actions = [parser.OFPActionOutput(out_port)]
-                                            self.add_flow(self.tm.get_device_by_name(current).get_dp(), match, actions)
-                                            actions=[parser.OFPActionOutput(in_port)]
-                                            match=ofproto_v1_0_parser.OFPMatch(in_port=out_port,dl_src=src,dl_dst=dst) #bidirectional flow
-                                            self.add_flow(self.tm.get_device_by_name(current).get_dp(),match , actions)
-                                            self.tm.add_rule_to_dict(current,in_port,out_port)
-                                            self.tm.add_rule_to_dict(current,out_port,in_port)
-                                            self.logger.warn(f"rule state:{self.tm.flow_rules}")
+
                                         
                                 
                             
@@ -450,9 +452,6 @@ if __name__ == '__main__':
 
     # Run the Ryu controller
     app_manager.run_eventlet(ShortestPathSwitching)
-    # controller=ShortestPathSwitching()
-    # wsgi=WSGIApplication()
-    # wsgi.register(CommunicationAPI,{'app':controller})
     
     
 
