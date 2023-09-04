@@ -15,15 +15,13 @@ import networkx as nx
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 from PIL import Image, ImageTk
 
 # Socket communication modules
 import socket
 import pickle
 import threading
-import subprocess
-import time
 
 # IP and port of Ryu App
 ipRyuApp = '127.0.0.1'

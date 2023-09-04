@@ -12,23 +12,21 @@ path switching.
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0, ofproto_v1_0_parser
 
-from ryu.topology import event, switches
-import ryu.topology.api as topo
+from ryu.topology import event
 from ryu.topology.event import EventHostAdd
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 from ryu.lib.packet import packet, ether_types
-from ryu.lib.packet import ethernet, arp, icmp
+from ryu.lib.packet import ethernet, arp
 
 from topo_manager import TopoManager
 import logging
 import pickle
 import socket
-import requests
 from webob import Response
 
 class CommunicationAPI(ControllerBase):
@@ -47,9 +45,10 @@ class CommunicationAPI(ControllerBase):
         
         return Response(status=200)
     
-    @route('test', '/test',methods=['GET'])
-    def test_route(self,req):
-        print("received request at test route!")
+    @route('reset_rules', '/reset_rules/{src_host}/{dst_host}',methods=['GET'])
+    def reset_route(self,req,src_host, dst_host):
+        print("received request at reset route")
+        self.controller_app.delete_rules(str(src_host),str(dst_host))
         return Response(status=200)
     
 
@@ -426,7 +425,6 @@ class ShortestPathSwitching(app_manager.RyuApp):
         parser = datapath.ofproto_parser
 
         # Create a match for the existing rule based on in_port and out_port
-        match = parser.OFPMatch(in_port=in_port)
 
         # Create a flow mod message to delete the rule
         flow_mod = parser.OFPFlowMod(
@@ -439,6 +437,26 @@ class ShortestPathSwitching(app_manager.RyuApp):
         datapath.send_msg(flow_mod)
 
         
+
+    def delete_rules (self,src_host, dst_host):
+        
+        src_mac=self.tm.host_ip_lookup[src_host]
+        dst_mac=self.tm.host_ip_lookup[dst_host]
+        src_dpid=self.tm.dpid_hostLookup(src_mac)
+        dst_dpid=self.tm.dpid_hostLookup(dst_mac)
+        parser=ofproto_v1_0_parser
+
+        self.logger.info(f"Deleting rules between {src_host} and {dst_host}")
+
+        if str(src_dpid) in self.tm.topo and str(dst_dpid) in self.tm.topo:
+            path=self.tm.get_shortest_path(str(src_dpid), str(dst_dpid))
+
+            if path is not None and len(path)>=2:
+                for i in range(0,len(path)):
+                    self.delete_flow_rule(self.tm.get_device_by_name(path[i]).get_dp(),0)
+                    if path[i] in self.tm.flow_rules:
+                        del self.tm.flow_rules[path[i]]
+
 
 
 

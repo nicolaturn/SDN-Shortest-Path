@@ -1,8 +1,5 @@
-from ryu.controller.handler import set_ev_cls
-from ryu.topology import event
-from ryu.controller import ofp_event
+
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER 
-from ryu.lib.packet import ether_types
 import networkx as nx
 
 

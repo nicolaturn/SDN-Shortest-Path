@@ -3,8 +3,12 @@
 from mininet.cli import CLI
 from mininet.log import error
 from urllib.parse import urlparse
-import socket
+import subprocess
 import requests
+import os
+from custom_exception import ServerNotAvailableError
+import time
+
 
 class CustomCLI(CLI):
     def do_simulate_communication(self, line):
@@ -87,6 +91,20 @@ class CustomCLI(CLI):
 
 
         
+    def check_error_signal(self):
+        error_signal_path="error.txt"
+        if os.path.exists(error_signal_path):
+            with open(error_signal_path, "r") as error_signal_file:
+                error_signal_content = error_signal_file.read()
+                error_signal_file.close()
+
+            if error_signal_content:
+                # Error signal file is not empty, indicating an error
+                os.remove(error_signal_path)
+                return True
+        else: return False
+        # Sleep for a while before checking again
+    
 
     def do_simulate_client_request(self, line):
         """
@@ -123,10 +141,12 @@ class CustomCLI(CLI):
             if res:
                 controller_response=requests.get(controller_uri)
                 print(controller_response)
-                
+                    
                 client_cmd = f"python3 scriptClient.py {url}"
                 res = self.mn[host_name].cmd(client_cmd)
                 print(res)
+                if self.check_error_signal():
+                    requests.get(f"http://localhost:8080/reset_rules/{src_host}/{dst_host}")
             else:
                 print(f"Request not sent due to server unavailability")
 

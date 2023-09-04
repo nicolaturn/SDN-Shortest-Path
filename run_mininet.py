@@ -1,14 +1,12 @@
 #!/usr/bin/env python2
-"""
-Custom topologies for cs168, Fall 2018, Project 4
-"""
+
 
 import time
 import argparse
 
 from custom_cli import CustomCLI
 from mininet.net import Mininet
-from mininet.node import OVSSwitch, RemoteController
+from mininet.node import  RemoteController
 from mininet.topo import Topo,SingleSwitchTopo,LinearTopo
 from mininet.topolib import TreeTopo
 from mininet.log import setLogLevel, info
