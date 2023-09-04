@@ -85,14 +85,15 @@ This will launch the GUI, intended to test the software. When one of the `start 
 
 ## Testing Communication
 
-To test the communication between a pair of hosts:
+The communication between two hosts is allowed only if instances of applications are running on the pair of hosts. 
 
+To test communication:
 
-1. Run `<src> ping <dst>` to test a simple ping command.
+1. Run `start_web_server <dst>`to start a server on the specified destination.
 
-2. Run `start_web_server <dst>`to start a server on the specified destination.
+2. Run `simulate_client_request <src> <url>` to make an HTTP GET request at the specified URL.
 
-3. Run `simulate_client_request <src> <url>` to make an HTTP GET request at the specified URL.
+The idea is that we allow communication only if a pair of application (Web Server and Client) are running on the specified host, therefore any ping command won't succeed.
 
 
 ## Contributing
