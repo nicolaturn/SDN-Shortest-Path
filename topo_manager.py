@@ -280,18 +280,6 @@ class TopoManager():
             print("not founding any the nodes passed...")
             return None
         
-    def get_switch_by_dpid(self, dpid):
-        """
-        Function for getting a switch by his dpid
-        Parameters:
-            dpid: the dpid of the switch to retrieve
-        Returns: 
-            the switch istance if it's found, None otherwise
-        """
-        for dev in self.all_devices:
-            if isinstance(dev, TMSwitch) and str(dev.get_dpid()) == dpid:
-                return dev
-        return None
     
     def dpid_hostLookup(self, mac):
         """
@@ -307,24 +295,6 @@ class TopoManager():
         return None
     
 
-
-
-
-    def get_port(self, dpid, port_no):
-        """
-        Function to retrieve a port by the corresponding dpid and port_no
-        Parameters:
-            dpid: the dpid of the device
-            port_no: the port number to be retrieved
-        Returns:
-            the port if found, None otherwise
-        """
-        switch = self.get_switch_by_dpid(dpid)
-        if switch is not None:
-            for port in switch.ports.values():
-                if port.port_no == port_no:
-                    return port
-        return None
 
 
 
