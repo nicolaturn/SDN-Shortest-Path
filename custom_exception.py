@@ -1,2 +1,0 @@
-class ServerNotAvailableError(Exception):
-    pass
